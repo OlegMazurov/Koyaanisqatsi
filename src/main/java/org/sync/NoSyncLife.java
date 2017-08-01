@@ -1,0 +1,403 @@
+/*
+ * Copyright 2017 Oleg Mazurov
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.sync;
+
+import javax.swing.JFrame;
+import javax.swing.Timer;
+import java.awt.Graphics;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
+import java.awt.image.BufferedImage;
+
+/**
+ * Chaotic Life
+ *
+ * https://github.com/OlegMazurov/Koyaanisqatsi
+ *
+ */
+
+public class NoSyncLife {
+
+    private static final int STATE0 = 0;
+    private static final int STATE1 = 1;
+    private static final int MAXNGHBR = 8;
+    private static final int[] COLORS = {
+            0xffffff, 0xff0000, 0x00ff00, 0x0000ff,
+            0xffff00, 0xff00ff, 0x00ffff, 0x80ff00,
+    };
+
+    private final int Width;
+    private final int Height;
+    private final int L;
+    private final int[] state;
+    private final int maxTime;
+    private final int nThreads;
+    private final boolean vis;
+    private BufferedImage img;
+
+    private static class PseudoRandom {
+        static final int FACTOR1 = 2999;
+        static final int FACTOR2 = 7901;
+        int val;
+
+        PseudoRandom(int seed) {
+            val = seed;
+        }
+
+        int nextInt(int n) {
+            if (n <= 1) return 0;
+            val = val * FACTOR1 + FACTOR2;
+            return val % n;
+        }
+    }
+
+    /**
+     * Cell neighbors wrapped around a torus:
+     *       -------------
+     *    +1 | 7 | 6 | 5 |
+     *       -------------
+     *     r | 8 | 0 | 4 |
+     *       -------------
+     *    -1 | 1 | 2 | 3 |
+     *       -------------
+     *        -1   c  +1
+     */
+    private int getNeighbor(int idx, int i)
+    {
+        int r = idx / Width;
+        int c = idx % Width;
+        switch (i) {
+            case 1:
+                if (--c < 0) c += Width;
+            case 2:
+                if (--r < 0) r += Height;
+                break;
+            case 3:
+                if (--r < 0) r += Height;
+            case 4:
+                if (++c == Width) c = 0;
+                break;
+            case 5:
+                if (++c == Width) c = 0;
+            case 6:
+                if (++r == Height) r = 0;
+                break;
+            case 7:
+                if (++r == Height) r = 0;
+            case 8:
+                if (--c < 0) c += Width;
+                break;
+        }
+        return r * Width + c;
+    }
+
+    private void runUnsync(int id)
+    {
+        PseudoRandom rnd = new PseudoRandom(id);
+
+        // Start apart
+        int idx = L * id / nThreads;
+
+        mainLoop: for (;;) {
+            int s0 = state[3*idx];
+            int s1 = state[3*idx + 1];
+            int S0 = Math.min(s0, s1);
+            int S1 = Math.max(s0, s1);
+            int S2  = state[3*idx + 2];
+
+            int TS0 = S0 >> 1;
+            int TS1 = S1 >> 1;
+            int TS2 = S2 >> 1;
+
+            if (TS2 < TS1) {
+                int sidx = -1;
+                int off = TS1 & 0x1;
+                int cnt = 0;
+
+                S2 = S1;
+                for (int n = 1; n <= MAXNGHBR; ++n) {
+                    int nidx = getNeighbor(idx, n);
+                    int val = state[3*nidx + off];
+                    if ((val >> 1) == TS1) {
+                        S2 ^= val;
+                    }
+                    else if (rnd.nextInt(++cnt) == 0) {
+                        sidx = nidx;
+                    }
+                }
+                if (sidx == -1) {
+                    state[3 * idx + 2] = S2;
+                    continue mainLoop;
+                }
+
+                if (TS2 < TS0) {
+                    sidx = -1;
+                    cnt = 0;
+                    off = TS0 & 0x1;
+                    S2 = S0;
+                    for (int n = 1; n <= MAXNGHBR; ++n) {
+                        int nidx = getNeighbor(idx, n);
+                        int val = state[3*nidx + off];
+                        if ((val >> 1) == TS0) {
+                            S2 ^= val;
+                        }
+                        else if (rnd.nextInt(++cnt) == 0) {
+                            sidx = nidx;
+                        }
+                    }
+                    if (sidx == -1) {
+                        state[3 * idx + 2] = S2;
+                        continue mainLoop;
+                    }
+                }
+                idx = sidx;
+            }
+            else {
+                int off = TS2 & 0x1;
+                int ridx = -1, rcnt = 0;
+                int sum = 0;
+                int sidx, scnt, sidx2, scnt2;
+
+                if (TS2 == TS1) {
+                    S2 ^= S1;
+                    sidx = sidx2 = -1;
+                    scnt = scnt2 = 0;
+                }
+                else {
+                    sidx = sidx2 = idx;
+                    scnt = scnt2 = 1;
+                }
+
+                for (int n = 1; n <= MAXNGHBR; ++n) {
+                    int nidx = getNeighbor(idx, n);
+                    int val = state[3*nidx + off];
+                    if ((val >> 1) == TS2) {
+                        sum += val & 0x1;
+                        S2 ^= val;
+                    }
+                    else {
+                        if (++scnt == 1) {
+                            sidx = nidx;
+                        }
+                        if (rnd.nextInt(++scnt2) == 0) {
+                            sidx2 = nidx;
+                        }
+                    }
+                    val = state[3*nidx + 2];
+                    if ((val >> 1) < TS2) {
+                        if (rnd.nextInt(++rcnt) == 0) {
+                            ridx = nidx;
+                        }
+                    }
+                    else if ((val >> 1) == TS2) {
+                        if (rnd.nextInt(++scnt2) == 0) {
+                            sidx2 = nidx;
+                        }
+                    }
+                }
+                if (scnt == 1) {
+                    state[3*sidx + off] = S2;
+                    if (sidx == idx) {
+                        S1 = S2;
+                    }
+                    else {
+                        sum += S2 & 0x1;
+                    }
+                }
+                else if (scnt > 1) {
+                    idx = sidx2;
+                    continue mainLoop;
+                }
+                if (ridx != -1) {
+                    idx = ridx;
+                    continue mainLoop;
+                }
+
+                // Are we done?
+                if (TS2 == maxTime) {
+                    for (int n = 0; n < L; ++n) {
+                        if (++idx == L) idx = 0;
+                        if (Math.max(state[3*idx], state[3*idx + 1]) >> 1 != maxTime) continue mainLoop;
+                    }
+                    return;
+                }
+
+                // Apply the rule of Life
+                int nextState = sum < 2 ? STATE0 : sum == 2 ? (S1 & 0x1) : sum == 3 ? STATE1 : STATE0;
+                state[3*idx + 1 - off] = ((TS2 + 1) << 1) | nextState;
+
+                if (vis) {
+                    // Color live cells according to the current thread id
+                    int color = nextState == STATE0 ? 0 : COLORS[(int)(Thread.currentThread().getId() % COLORS.length)];
+                    // Color all cells according to the current thread id
+                    //int color = COLORS[(int)(Thread.currentThread().getId() % COLORS.length)];
+                    // Color all cells according to the current generation
+                    //int color = COLORS[TS1 % COLORS.length];
+                    img.setRGB(idx % Width, idx / Width, color);
+                }
+            }
+        }
+    }
+
+    public String[] execute()
+    {
+        // Run concurrently
+        Thread[] threads = new Thread[nThreads];
+        for (int t=0; t<threads.length; ++t) {
+            final int id = t;
+            Thread thread = new Thread(() -> runUnsync(id));
+            threads[t] = thread;
+            thread.start();
+        }
+
+        try {
+            for (Thread thread : threads) {
+                thread.join();
+            }
+        }
+        catch (InterruptedException ie) {
+            ie.printStackTrace();
+        }
+
+        // Produce result
+        String[] result = new String[Height];
+        StringBuilder sb = new StringBuilder();
+        for (int r = 0; r < Height; ++r) {
+            sb.setLength(0);
+            for (int c = 0; c < Width; ++c) {
+                int idx = 3 * (r * Width + c);
+                sb.append(Math.max(state[idx], state[idx + 1]) & 0x1);
+            }
+            result[r] = sb.toString();
+        }
+        return result;
+    }
+
+    public NoSyncLife(int w, int h, int t, int p, boolean v, int[] s)
+    {
+        Width = w;
+        Height = h;
+        L = Width * Height;
+        maxTime = t;
+        nThreads = p;
+        vis = v;
+
+        // Initialize visualization
+        if (vis) {
+            img = new BufferedImage(Width, Height, BufferedImage.TYPE_INT_RGB);
+
+            JFrame frame = new JFrame() {
+                public void paint(Graphics g) {
+                    g.drawImage(img, 0, 0, null);
+                }
+            };
+            frame.setSize(Width, Height);
+            frame.addWindowListener(new WindowAdapter() {
+                public void windowClosing(WindowEvent e) {
+                    System.exit(0);
+                }
+            });
+            frame.setVisible(true);
+
+            Timer timer = new Timer(40, (e) -> frame.repaint());
+            timer.start();
+        }
+
+        // Initialize the state
+        state = new int[L * 3];
+        for (int r = 0; r < Height; ++r)
+        for (int c = 0; c < Width; ++c) {
+            int idx = r*Width + c;
+            int st = s[idx] == 0 ? STATE0 : STATE1;
+            state[3*idx + 1] = (1 << 1) | st;
+            int R = st;
+            for (int n = 1; n <= MAXNGHBR; ++n) {
+                R ^= s[getNeighbor(idx, n)] == 0 ? STATE0 : STATE1;
+            }
+            state[3*idx + 2] = (1 << 1) | R;
+        }
+    }
+
+    public static NoSyncLife fromRLE(RLE rle, int width, int height, int time, int par, boolean vis)
+    {
+        // Re-center
+        width = Math.max(width, rle.getW());
+        height = Math.max(height, rle.getH());
+        int[] state = new int[width * height];
+        int x0 = (width - rle.getW())/2;
+        int y0 = (height - rle.getH())/2;
+        for (int x=0; x<rle.getW(); ++x) {
+            for (int y=0; y<rle.getH(); ++y) {
+                state[(y+y0)*width + x+x0] = rle.getState(x, y);
+            }
+        }
+        return new NoSyncLife(width, height, time, par, vis, state);
+    }
+
+    public static NoSyncLife fromRLE(RLE rle, int time, int par, boolean vis)
+    {
+        return fromRLE(rle, rle.getW(), rle.getH(), time, par, vis);
+    }
+
+    public static void main(String[] args)
+    {
+        int width = 0;
+        int height = 0;
+        int time = 1000;
+        int parallelism = 1;
+        boolean vis = true;
+        RLE rle = null;
+
+        for (int i=0; i<args.length; i++) {
+            if (args[i].equals("-w")) {
+                width = Integer.parseInt(args[++i]);
+            }
+            else if (args[i].equals("-h")) {
+                height = Integer.parseInt(args[++i]);
+            }
+            else if (args[i].equals("-p")) {
+                parallelism = Integer.parseInt(args[++i]);
+            }
+            else if (args[i].equals("-t")) {
+                time = Integer.parseInt(args[++i]);
+            }
+            else if (args[i].equals("-novis")) {
+                vis = false;
+            }
+            else {
+                rle = RLE.fromFile(args[i]);
+                if (rle == null) {
+                    return;
+                }
+            }
+        }
+
+        if (rle == null) {
+            rle = RLE.getAcorn();
+        }
+
+        NoSyncLife lf = fromRLE(rle, width, height, time, parallelism, vis);
+        long start = System.currentTimeMillis();
+        String[] state = lf.execute();
+        long end = System.currentTimeMillis();
+
+        for (String str : state) {
+            System.out.println(str);
+        }
+        System.out.println("Time: " + (end-start) + " ms");
+    }
+}

@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>org.sync.NoSyncLife</groupId>
+    <artifactId>NoSyncLife</artifactId>
+    <version>1.0.0</version>
+    <name>${project.artifactId}</name>
+    <description>Koyaanisqatsi (Chaotic Life)</description>
+
+    <properties>
+        <maven.compiler.source>1.8</maven.compiler.source>
+        <maven.compiler.target>1.8</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>4.12</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>3.0.2</version>
+                <configuration>
+                    <archive>
+                        <manifest>
+                            <mainClass>org.sync.NoSyncLife</mainClass>
+                        </manifest>
+                    </archive>
+                </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>1.6.0</version>
+                <executions>
+                    <execution>
+                    <id>default-cli</id>
+                    <configuration>
+                        <mainClass>org.sync.NoSyncLife</mainClass>
+                        <commandlineArgs>-w 400 -h 400 -t 8000 -p 8</commandlineArgs>
+                    </configuration>
+                    </execution>
+                    <execution>
+                        <id>counter</id>
+                        <configuration>
+                            <mainClass>org.sync.NoSyncLife</mainClass>
+                            <commandlineArgs>-h 1200 -t 20000 -p 8 DecimalCounter.rle</commandlineArgs>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <artifactId>maven-clean-plugin</artifactId>
+                <version>3.0.0</version>
+                <executions>
+                     <execution>
+                         <goals>
+                             <goal>clean</goal>
+                         </goals>
+                     </execution>
+                 </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>
+
+
