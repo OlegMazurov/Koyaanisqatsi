@@ -112,12 +112,13 @@ public class NoSyncLife {
         // Start apart
         int idx = L * id / nThreads;
 
-        mainLoop: for (;;) {
-            int s0 = state[3*idx];
-            int s1 = state[3*idx + 1];
+        mainLoop:
+        for (;;) {
+            int s0 = state[3 * idx];
+            int s1 = state[3 * idx + 1];
             int S0 = Math.min(s0, s1);
             int S1 = Math.max(s0, s1);
-            int S2  = state[3*idx + 2];
+            int S2 = state[3 * idx + 2];
 
             int TS0 = S0 >> 1;
             int TS1 = S1 >> 1;
@@ -127,128 +128,193 @@ public class NoSyncLife {
                 int sidx = -1;
                 int off = TS1 & 0x1;
                 int cnt = 0;
-
-                S2 = S1;
+                int V = S1;
                 for (int n = 1; n <= MAXNGHBR; ++n) {
                     int nidx = getNeighbor(idx, n);
-                    int val = state[3*nidx + off];
+                    int val = state[3 * nidx + off];
                     if ((val >> 1) == TS1) {
-                        S2 ^= val;
+                        V ^= val;
                     }
                     else if (rnd.nextInt(++cnt) == 0) {
                         sidx = nidx;
                     }
                 }
-                if (sidx == -1) {
-                    state[3 * idx + 2] = S2;
+                if (cnt == 0) {
+                    state[3 * idx + 2] = V;
                     continue mainLoop;
                 }
 
                 if (TS2 < TS0) {
-                    sidx = -1;
                     cnt = 0;
                     off = TS0 & 0x1;
-                    S2 = S0;
+                    V = S0;
                     for (int n = 1; n <= MAXNGHBR; ++n) {
                         int nidx = getNeighbor(idx, n);
-                        int val = state[3*nidx + off];
+                        int val = state[3 * nidx + off];
                         if ((val >> 1) == TS0) {
-                            S2 ^= val;
+                            V ^= val;
                         }
                         else if (rnd.nextInt(++cnt) == 0) {
                             sidx = nidx;
                         }
                     }
-                    if (sidx == -1) {
-                        state[3 * idx + 2] = S2;
+                    if (cnt == 0) {
+                        state[3 * idx + 2] = V;
+                        continue mainLoop;
+                    }
+                }
+                else if (TS2 == TS0) {
+                    cnt = 0;
+                    off = TS0 & 0x1;
+                    V = S0 ^ S2;
+                    for (int n = 1; n <= MAXNGHBR; ++n) {
+                        int nidx = getNeighbor(idx, n);
+                        int val = state[3 * nidx + off];
+                        if ((val >> 1) == TS0) {
+                            V ^= val;
+                        }
+                        else if (rnd.nextInt(++cnt) == 0) {
+                            sidx = nidx;
+                        }
+                    }
+                    if (cnt == 1) {
+                        state[3 * sidx + off] = V;
+                        continue mainLoop;
+                    }
+                }
+                else {
+                    sidx = idx;
+                    cnt = 1;
+                    off = TS2 & 0x1;
+                    V = S2;
+                    for (int n = 1; n <= MAXNGHBR; ++n) {
+                        int nidx = getNeighbor(idx, n);
+                        int val = state[3 * nidx + off];
+                        if ((val >> 1) == TS2) {
+                            V ^= val;
+                        }
+                        else if (rnd.nextInt(++cnt) == 0) {
+                            sidx = nidx;
+                        }
+                    }
+                    if (cnt == 1) {
+                        state[3 * sidx + off] = V;
                         continue mainLoop;
                     }
                 }
                 idx = sidx;
             }
-            else {
+            else if (TS2 == TS1) {
+                int sidx = -1;
                 int off = TS2 & 0x1;
-                int ridx = -1, rcnt = 0;
+                int cnt = 0;
                 int sum = 0;
-                int sidx, scnt, sidx2, scnt2;
 
-                if (TS2 == TS1) {
-                    S2 ^= S1;
-                    sidx = sidx2 = -1;
-                    scnt = scnt2 = 0;
-                }
-                else {
-                    sidx = sidx2 = idx;
-                    scnt = scnt2 = 1;
-                }
-
+                int V = S1 ^ S2;
                 for (int n = 1; n <= MAXNGHBR; ++n) {
                     int nidx = getNeighbor(idx, n);
-                    int val = state[3*nidx + off];
+                    int val = state[3 * nidx + off];
                     if ((val >> 1) == TS2) {
+                        V ^= val;
                         sum += val & 0x1;
-                        S2 ^= val;
                     }
-                    else {
-                        if (++scnt == 1) {
-                            sidx = nidx;
-                        }
-                        if (rnd.nextInt(++scnt2) == 0) {
-                            sidx2 = nidx;
-                        }
+                    else if (rnd.nextInt(++cnt) == 0) {
+                        sidx = nidx;
                     }
-                    val = state[3*nidx + 2];
-                    if ((val >> 1) < TS2) {
-                        if (rnd.nextInt(++rcnt) == 0) {
+                }
+                if (cnt == 1) {
+                    state[3 * sidx + off] = V;
+                    sum += V & 0x1;
+                    cnt = 0;
+                }
+
+                int cnt2 = cnt;
+                int ridx = -1;
+                for (int n = 1; n <= MAXNGHBR; ++n) {
+                    int nidx = getNeighbor(idx, n);
+                    int val = state[3 * nidx + 2];
+                    if ((val >> 1) <= TS2) {
+                        if ((val >> 1) < TS2) {
+                            ++cnt;
                             ridx = nidx;
                         }
-                    }
-                    else if ((val >> 1) == TS2) {
-                        if (rnd.nextInt(++scnt2) == 0) {
-                            sidx2 = nidx;
+                        if (cnt2 > 0 && rnd.nextInt(++cnt2) == 0) {
+                            sidx = nidx;
                         }
                     }
                 }
-                if (scnt == 1) {
-                    state[3*sidx + off] = S2;
-                    if (sidx == idx) {
-                        S1 = S2;
-                    }
-                    else {
-                        sum += S2 & 0x1;
-                    }
-                }
-                else if (scnt > 1) {
-                    idx = sidx2;
-                    continue mainLoop;
-                }
-                if (ridx != -1) {
-                    idx = ridx;
+                if (cnt > 0) {
+                    idx = ridx != -1 ? ridx : sidx;
                     continue mainLoop;
                 }
 
                 // Are we done?
-                if (TS2 == maxTime) {
+                if (TS1 == maxTime) {
                     for (int n = 0; n < L; ++n) {
                         if (++idx == L) idx = 0;
-                        if (Math.max(state[3*idx], state[3*idx + 1]) >> 1 != maxTime) continue mainLoop;
+                        if (Math.max(state[3 * idx], state[3 * idx + 1]) >> 1 != maxTime) continue mainLoop;
                     }
                     return;
                 }
 
                 // Apply the rule of Life
                 int nextState = sum < 2 ? STATE0 : sum == 2 ? (S1 & 0x1) : sum == 3 ? STATE1 : STATE0;
-                state[3*idx + 1 - off] = ((TS2 + 1) << 1) | nextState;
+                state[3 * idx + 1 - off] = ((TS1 + 1) << 1) | nextState;
 
                 if (vis) {
                     // Color live cells according to the current thread id
-                    int color = nextState == STATE0 ? 0 : COLORS[(int)(Thread.currentThread().getId() % COLORS.length)];
+                    int color = nextState == STATE0 ? 0 : COLORS[(int) (Thread.currentThread().getId() % COLORS.length)];
                     // Color all cells according to the current thread id
                     //int color = COLORS[(int)(Thread.currentThread().getId() % COLORS.length)];
                     // Color all cells according to the current generation
                     //int color = COLORS[TS1 % COLORS.length];
                     img.setRGB(idx % Width, idx / Width, color);
                 }
+            }
+            else {
+                int off = TS2 & 0x1;
+                int cnt = 1, sidx = idx;
+                int V = S2;
+                for (int n = 1; n <= MAXNGHBR; ++n) {
+                    int nidx = getNeighbor(idx, n);
+                    int val = state[3 * nidx + off];
+                    if ((val >> 1) == TS2) {
+                        V ^= val;
+                    }
+                    else {
+                        if (rnd.nextInt(++cnt) == 0) {
+                            sidx = nidx;
+                        }
+                    }
+                }
+                if (cnt == 1) {
+                    state[3 * sidx + off] = V;
+                    continue mainLoop;
+                }
+
+                off = TS1 & 0x1;
+                cnt = 0;
+                int sum = 0;
+                for (int n = 1; n <= MAXNGHBR; ++n) {
+                    int nidx = getNeighbor(idx, n);
+                    int val = state[3 * nidx + off];
+                    if ((val >> 1) == TS1) {
+                        sum += val & 0x1;
+                    }
+                    else {
+                        if (rnd.nextInt(++cnt) == 0) {
+                            sidx = nidx;
+                        }
+                    }
+                }
+                if (cnt > 0) {
+                    continue mainLoop;
+                }
+
+                // Apply the rule of Life
+                int nextState = sum < 2 ? STATE0 : sum == 2 ? (S1 & 0x1) : sum == 3 ? STATE1 : STATE0;
+                state[3 * idx + 1 - off] = ((TS1 + 1) << 1) | nextState;
+                idx = sidx;
             }
         }
     }
@@ -323,12 +389,12 @@ public class NoSyncLife {
         for (int c = 0; c < Width; ++c) {
             int idx = r*Width + c;
             int st = s[idx] == 0 ? STATE0 : STATE1;
-            state[3*idx + 1] = (1 << 1) | st;
+            state[3 * idx + 1] = (1 << 1) | st;
             int R = st;
             for (int n = 1; n <= MAXNGHBR; ++n) {
                 R ^= s[getNeighbor(idx, n)] == 0 ? STATE0 : STATE1;
             }
-            state[3*idx + 2] = (1 << 1) | R;
+            state[3 * idx + 2] = (1 << 1) | R;
         }
     }
 

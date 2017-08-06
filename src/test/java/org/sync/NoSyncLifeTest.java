@@ -21,7 +21,7 @@ import org.junit.Test;
 
 public class NoSyncLifeTest {
 
-    @Test
+    @Test(timeout = 60000)
     public void testFast() {
         // Test 8-thread parallel execution against serial
         RLE acorn = RLE.getAcorn();
@@ -34,7 +34,7 @@ public class NoSyncLifeTest {
         Assert.assertArrayEquals(golden, state);
     }
 
-    @Test
+    @Test(timeout = 300000)
     public void testLong() {
         int generations = 2000;
         RLE acorn = RLE.getAcorn();
