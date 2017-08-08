@@ -36,7 +36,7 @@ So, here it is, an "asynchronous parallel wait-free unsynchronized" implementati
 
 ## How to build, test, and run
 
-The project uses Maven (3.3.9), though it doesn't really have any dependencies.
+The project uses Java 8 and Maven (3.3.9), though it doesn't really have any dependencies.
 To run tests:
 ```shell
     mvn test
@@ -57,6 +57,24 @@ To create a jar file:
 To run from jar:
 ```shell
     java -jar target/NoSyncLife-1.0.0.jar [-w width] [-h height] [-t generations] [-p threads] [-novis] [<file>.rle]
+```
+
+## How to build, test, and run without Maven
+
+To build
+```shell
+    mkdir -p target/classes
+    javac -sourcepath src/main/java -d target/classes src/main/java/org/sync/NoSyncLife.java
+```
+To run visualization
+```shell
+    java -cp target/classes org.sync.NoSyncLife -t 10000 -p 8
+    java -cp target/classes org.sync.NoSyncLife -t 10000 -p 8 -h 1200 src/main/resources/DecimalCounter.rle
+```
+To test
+```shell
+    java -cp target/classes org.sync.NoSyncLife -t 10000 -p 1 -novis > golden
+    while (true) do java -cp target/classes org.sync.NoSyncLife -t 10000 -p 8 -novis > current && diff golden current; done
 ```
 
 ## License
