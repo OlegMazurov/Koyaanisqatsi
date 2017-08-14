@@ -94,17 +94,19 @@ public class RLE {
             int w = 0;
             int h = 0;
             String[] tokens = line.split("[ ,]+");
-            for (int i=0; i<tokens.length; ++i) {
-                if (tokens[i].equals("x")) {
-                    w = Integer.parseInt(tokens[i+2]);
-                    i += 2;
-                }
-                else if (tokens[i].equals("y")) {
-                    h = Integer.parseInt(tokens[i+2]);
-                    i += 2;
-                }
-                else {
-                    break;
+            label:
+            for (int i = 0; i < tokens.length; ++i) {
+                switch (tokens[i]) {
+                    case "x":
+                        w = Integer.parseInt(tokens[i + 2]);
+                        i += 2;
+                        break;
+                    case "y":
+                        h = Integer.parseInt(tokens[i + 2]);
+                        i += 2;
+                        break;
+                    default:
+                        break label;
                 }
             }
 

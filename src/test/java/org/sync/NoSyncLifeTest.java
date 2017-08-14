@@ -17,6 +17,7 @@
 package org.sync;
 
 import org.junit.Assert;
+import org.junit.Ignore;
 import org.junit.Test;
 
 public class NoSyncLifeTest {
@@ -28,15 +29,28 @@ public class NoSyncLifeTest {
         NoSyncLife sample = NoSyncLife.fromRLE(acorn, 100, 1, false);
         String[] golden = sample.execute();
 
-        sample = NoSyncLife.fromRLE(acorn, 100, 8, false);
+        sample = NoSyncLife.fromRLE(acorn, 100, 4, false);
         String[] state = sample.execute();
 
         Assert.assertArrayEquals(golden, state);
     }
 
+    @Test(timeout = 50000)
+    public void testLong100() {
+        testLong(100, 16);
+    }
+    @Test(timeout = 50000)
+    public void testLong200() {
+        testLong(200, 16);
+    }
+
+    @Ignore
     @Test(timeout = 300000)
-    public void testLong() {
-        int generations = 2000;
+    public void testLong2000() {
+        testLong(2000, 256);
+    }
+
+    private void testLong(int generations, int maxParallelism) {
         RLE acorn = RLE.getAcorn();
 
         System.out.print("Running test for " + generations +" generations with 1 thread");
@@ -46,7 +60,7 @@ public class NoSyncLifeTest {
         long time1 = System.currentTimeMillis() - start;
         System.out.println(", base time: " + time1 + " ms");
 
-        for (int p = 2; p <= 512; p *= 2) {
+        for (int p = 2; p <= maxParallelism; p *= 2) {
             System.out.print("Running test for " + generations +" generations with " + p + " threads");
             sample = NoSyncLife.fromRLE(acorn, generations, p, false);
             start = System.currentTimeMillis();
@@ -59,7 +73,7 @@ public class NoSyncLifeTest {
         }
     }
 
-//    @Test
+    //    @Test
     public void testInfinite() {
         int generations = 10000;
         int threads = 32;
