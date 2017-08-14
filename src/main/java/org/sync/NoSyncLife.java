@@ -16,18 +16,19 @@
 
 package org.sync;
 
-import javax.swing.JFrame;
-import javax.swing.Timer;
-import java.awt.Graphics;
+import javax.swing.*;
+import java.awt.*;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.awt.image.BufferedImage;
+import java.awt.image.DataBuffer;
+import java.awt.image.DataBufferInt;
+import java.awt.image.Raster;
 
 /**
  * Chaotic Life
- *
+ * <p>
  * https://github.com/OlegMazurov/Koyaanisqatsi
- *
  */
 
 public class NoSyncLife {
@@ -47,7 +48,9 @@ public class NoSyncLife {
     private final int maxTime;
     private final int nThreads;
     private final boolean vis;
+
     private BufferedImage img;
+    private int[] imgData;
 
     private static class PseudoRandom {
         static final int FACTOR1 = 2999;
@@ -67,17 +70,16 @@ public class NoSyncLife {
 
     /**
      * Cell neighbors wrapped around a torus:
-     *       -------------
-     *    +1 | 7 | 6 | 5 |
-     *       -------------
-     *     r | 8 | 0 | 4 |
-     *       -------------
-     *    -1 | 1 | 2 | 3 |
-     *       -------------
-     *        -1   c  +1
+     * -------------
+     * +1 | 7 | 6 | 5 |
+     * -------------
+     * r | 8 | 0 | 4 |
+     * -------------
+     * -1 | 1 | 2 | 3 |
+     * -------------
+     * -1   c  +1
      */
-    private int getNeighbor(int idx, int i)
-    {
+    private int getNeighbor(int idx, int i) {
         int r = idx / Width;
         int c = idx % Width;
         switch (i) {
@@ -105,15 +107,37 @@ public class NoSyncLife {
         return r * Width + c;
     }
 
-    private void runUnsync(int id)
-    {
+//    public static int[] pixels(BufferedImage img, int x, int y, int w, int h, int[] pixels) {
+//        if (w == 0 || h == 0) {
+//            return new int[0];
+//        }
+//
+//        if (pixels == null) {
+//            pixels = new int[w * h];
+//        } else if (pixels.length < w * h) {
+//            throw new IllegalArgumentException("Pixels array must have a length >= w * h");
+//        }
+//
+//        int imageType = img.getType();
+//        if (imageType == BufferedImage.TYPE_INT_ARGB || imageType == BufferedImage.TYPE_INT_RGB) {
+//            Raster raster = img.getRaster();
+//            return (int[]) raster.getDataElements(x, y, w, h, pixels);
+//        }
+//
+//        // Unmanages the image
+//        return img.getRGB(x, y, w, h, pixels, 0, w);
+//    }
+
+    private void runUnsync(int id) {
         PseudoRandom rnd = new PseudoRandom(id);
 
         // Start apart
         int idx = L * id / nThreads;
 
+        long threadID = Thread.currentThread().getId();
+
         mainLoop:
-        for (;;) {
+        for (; ; ) {
             int s0 = state[3 * idx];
             int s1 = state[3 * idx + 1];
             int S0 = Math.min(s0, s1);
@@ -134,8 +158,7 @@ public class NoSyncLife {
                     int val = state[3 * nidx + off];
                     if ((val >> 1) == TS1) {
                         V ^= val;
-                    }
-                    else if (rnd.nextInt(++cnt) == 0) {
+                    } else if (rnd.nextInt(++cnt) == 0) {
                         sidx = nidx;
                     }
                 }
@@ -153,8 +176,7 @@ public class NoSyncLife {
                         int val = state[3 * nidx + off];
                         if ((val >> 1) == TS0) {
                             V ^= val;
-                        }
-                        else if (rnd.nextInt(++cnt) == 0) {
+                        } else if (rnd.nextInt(++cnt) == 0) {
                             sidx = nidx;
                         }
                     }
@@ -162,8 +184,7 @@ public class NoSyncLife {
                         state[3 * idx + 2] = V;
                         continue mainLoop;
                     }
-                }
-                else if (TS2 == TS0) {
+                } else if (TS2 == TS0) {
                     cnt = 0;
                     off = TS0 & 0x1;
                     V = S0 ^ S2;
@@ -172,8 +193,7 @@ public class NoSyncLife {
                         int val = state[3 * nidx + off];
                         if ((val >> 1) == TS0) {
                             V ^= val;
-                        }
-                        else if (rnd.nextInt(++cnt) == 0) {
+                        } else if (rnd.nextInt(++cnt) == 0) {
                             sidx = nidx;
                         }
                     }
@@ -181,8 +201,7 @@ public class NoSyncLife {
                         state[3 * sidx + off] = V;
                         continue mainLoop;
                     }
-                }
-                else {
+                } else {
                     sidx = idx;
                     cnt = 1;
                     off = TS2 & 0x1;
@@ -192,8 +211,7 @@ public class NoSyncLife {
                         int val = state[3 * nidx + off];
                         if ((val >> 1) == TS2) {
                             V ^= val;
-                        }
-                        else if (rnd.nextInt(++cnt) == 0) {
+                        } else if (rnd.nextInt(++cnt) == 0) {
                             sidx = nidx;
                         }
                     }
@@ -203,8 +221,7 @@ public class NoSyncLife {
                     }
                 }
                 idx = sidx;
-            }
-            else if (TS2 == TS1) {
+            } else if (TS2 == TS1) {
                 int sidx = -1;
                 int off = TS2 & 0x1;
                 int cnt = 0;
@@ -217,8 +234,7 @@ public class NoSyncLife {
                     if ((val >> 1) == TS2) {
                         V ^= val;
                         sum += val & 0x1;
-                    }
-                    else if (rnd.nextInt(++cnt) == 0) {
+                    } else if (rnd.nextInt(++cnt) == 0) {
                         sidx = nidx;
                     }
                 }
@@ -263,15 +279,19 @@ public class NoSyncLife {
 
                 if (vis) {
                     // Color live cells according to the current thread id
-                    int color = nextState == STATE0 ? 0 : COLORS[(int) (Thread.currentThread().getId() % COLORS.length)];
+
+                    int color = nextState == STATE0 ? 0 : COLORS[(int) (threadID % COLORS.length)];
                     // Color all cells according to the current thread id
                     //int color = COLORS[(int)(Thread.currentThread().getId() % COLORS.length)];
                     // Color all cells according to the current generation
                     //int color = COLORS[TS1 % COLORS.length];
-                    img.setRGB(idx % Width, idx / Width, color);
+
+                    //img.setRGB(idx % Width, idx / Width, color);
+                    imgData[idx] = color;
+                    //        raster.setDataElements(x, y, colorModel.getDataElements(rgb, null));
+
                 }
-            }
-            else {
+            } else {
                 int off = TS2 & 0x1;
                 int cnt = 1, sidx = idx;
                 int V = S2;
@@ -280,8 +300,7 @@ public class NoSyncLife {
                     int val = state[3 * nidx + off];
                     if ((val >> 1) == TS2) {
                         V ^= val;
-                    }
-                    else {
+                    } else {
                         if (rnd.nextInt(++cnt) == 0) {
                             sidx = nidx;
                         }
@@ -300,8 +319,7 @@ public class NoSyncLife {
                     int val = state[3 * nidx + off];
                     if ((val >> 1) == TS1) {
                         sum += val & 0x1;
-                    }
-                    else {
+                    } else {
                         if (rnd.nextInt(++cnt) == 0) {
                             sidx = nidx;
                         }
@@ -319,11 +337,10 @@ public class NoSyncLife {
         }
     }
 
-    public String[] execute()
-    {
+    public String[] execute() {
         // Run concurrently
         Thread[] threads = new Thread[nThreads];
-        for (int t=0; t<threads.length; ++t) {
+        for (int t = 0; t < threads.length; ++t) {
             final int id = t;
             Thread thread = new Thread(() -> runUnsync(id));
             threads[t] = thread;
@@ -334,8 +351,7 @@ public class NoSyncLife {
             for (Thread thread : threads) {
                 thread.join();
             }
-        }
-        catch (InterruptedException ie) {
+        } catch (InterruptedException ie) {
             ie.printStackTrace();
         }
 
@@ -353,8 +369,7 @@ public class NoSyncLife {
         return result;
     }
 
-    public NoSyncLife(int w, int h, int t, int p, boolean v, int[] s)
-    {
+    public NoSyncLife(int w, int h, int t, int p, boolean v, int[] s) {
         Width = w;
         Height = h;
         L = Width * Height;
@@ -365,12 +380,24 @@ public class NoSyncLife {
         // Initialize visualization
         if (vis) {
             img = new BufferedImage(Width, Height, BufferedImage.TYPE_INT_RGB);
+            Raster raster = img.getRaster();
+            DataBufferInt imgData = (DataBufferInt) raster.getDataBuffer();
+            this.imgData = imgData.getData();
+            //System.out.println(raster.getClass() + " " + imgData + " " + imgData.getClass());
+
+
+            //getDataElements(x, y, w, h, pixels);
+
 
             JFrame frame = new JFrame() {
                 public void paint(Graphics g) {
-                    g.drawImage(img, 0, 0, null);
+
+                    g.drawImage(img, 0, 0,
+                            getWidth(), getHeight(), //stretch scale
+                            null);
                 }
             };
+            frame.setIgnoreRepaint(true);
             frame.setSize(Width, Height);
             frame.addWindowListener(new WindowAdapter() {
                 public void windowClosing(WindowEvent e) {
@@ -386,65 +413,57 @@ public class NoSyncLife {
         // Initialize the state
         state = new int[L * 3];
         for (int r = 0; r < Height; ++r)
-        for (int c = 0; c < Width; ++c) {
-            int idx = r*Width + c;
-            int st = s[idx] == 0 ? STATE0 : STATE1;
-            state[3 * idx + 1] = (1 << 1) | st;
-            int R = st;
-            for (int n = 1; n <= MAXNGHBR; ++n) {
-                R ^= s[getNeighbor(idx, n)] == 0 ? STATE0 : STATE1;
+            for (int c = 0; c < Width; ++c) {
+                int idx = r * Width + c;
+                int st = s[idx] == 0 ? STATE0 : STATE1;
+                state[3 * idx + 1] = (1 << 1) | st;
+                int R = st;
+                for (int n = 1; n <= MAXNGHBR; ++n) {
+                    R ^= s[getNeighbor(idx, n)] == 0 ? STATE0 : STATE1;
+                }
+                state[3 * idx + 2] = (1 << 1) | R;
             }
-            state[3 * idx + 2] = (1 << 1) | R;
-        }
     }
 
-    public static NoSyncLife fromRLE(RLE rle, int width, int height, int time, int par, boolean vis)
-    {
+    public static NoSyncLife fromRLE(RLE rle, int width, int height, int time, int par, boolean vis) {
         // Re-center
         width = Math.max(width, rle.getW());
         height = Math.max(height, rle.getH());
         int[] state = new int[width * height];
-        int x0 = (width - rle.getW())/2;
-        int y0 = (height - rle.getH())/2;
-        for (int x=0; x<rle.getW(); ++x) {
-            for (int y=0; y<rle.getH(); ++y) {
-                state[(y+y0)*width + x+x0] = rle.getState(x, y);
+        int x0 = (width - rle.getW()) / 2;
+        int y0 = (height - rle.getH()) / 2;
+        for (int x = 0; x < rle.getW(); ++x) {
+            for (int y = 0; y < rle.getH(); ++y) {
+                state[(y + y0) * width + x + x0] = rle.getState(x, y);
             }
         }
         return new NoSyncLife(width, height, time, par, vis, state);
     }
 
-    public static NoSyncLife fromRLE(RLE rle, int time, int par, boolean vis)
-    {
+    public static NoSyncLife fromRLE(RLE rle, int time, int par, boolean vis) {
         return fromRLE(rle, rle.getW(), rle.getH(), time, par, vis);
     }
 
-    public static void main(String[] args)
-    {
+    public static void main(String[] args) {
         int width = 0;
         int height = 0;
         int time = 1000;
-        int parallelism = 1;
+        int parallelism = Math.max(1, Runtime.getRuntime().availableProcessors() - 1);
         boolean vis = true;
         RLE rle = null;
 
-        for (int i=0; i<args.length; i++) {
+        for (int i = 0; i < args.length; i++) {
             if (args[i].equals("-w")) {
                 width = Integer.parseInt(args[++i]);
-            }
-            else if (args[i].equals("-h")) {
+            } else if (args[i].equals("-h")) {
                 height = Integer.parseInt(args[++i]);
-            }
-            else if (args[i].equals("-p")) {
+            } else if (args[i].equals("-p")) {
                 parallelism = Integer.parseInt(args[++i]);
-            }
-            else if (args[i].equals("-t")) {
+            } else if (args[i].equals("-t")) {
                 time = Integer.parseInt(args[++i]);
-            }
-            else if (args[i].equals("-novis")) {
+            } else if (args[i].equals("-novis")) {
                 vis = false;
-            }
-            else {
+            } else {
                 rle = RLE.fromFile(args[i]);
                 if (rle == null) {
                     return;
@@ -464,6 +483,6 @@ public class NoSyncLife {
         for (String str : state) {
             System.out.println(str);
         }
-        System.out.println("Time: " + (end-start) + " ms");
+        System.out.println("Time: " + (end - start) + " ms");
     }
 }
