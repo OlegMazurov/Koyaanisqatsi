@@ -22,6 +22,7 @@ import java.awt.Graphics;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.awt.image.BufferedImage;
+import java.awt.image.DataBufferInt;
 
 /**
  * Chaotic Life
@@ -47,7 +48,7 @@ public class NoSyncLife {
     private final int maxTime;
     private final int nThreads;
     private final boolean vis;
-    private BufferedImage img;
+    private int[] imgData;
 
     private static class PseudoRandom {
         static final int FACTOR1 = 2999;
@@ -263,12 +264,12 @@ public class NoSyncLife {
 
                 if (vis) {
                     // Color live cells according to the current thread id
-                    int color = nextState == STATE0 ? 0 : COLORS[(int) (Thread.currentThread().getId() % COLORS.length)];
+                    int color = nextState == STATE0 ? 0 : COLORS[id % COLORS.length];
                     // Color all cells according to the current thread id
-                    //int color = COLORS[(int)(Thread.currentThread().getId() % COLORS.length)];
+                    //int color = COLORS[id % COLORS.length];
                     // Color all cells according to the current generation
                     //int color = COLORS[TS1 % COLORS.length];
-                    img.setRGB(idx % Width, idx / Width, color);
+                    imgData[idx] = color;
                 }
             }
             else {
@@ -364,11 +365,12 @@ public class NoSyncLife {
 
         // Initialize visualization
         if (vis) {
-            img = new BufferedImage(Width, Height, BufferedImage.TYPE_INT_RGB);
+            BufferedImage img = new BufferedImage(Width, Height, BufferedImage.TYPE_INT_RGB);
+            imgData = ((DataBufferInt)img.getRaster().getDataBuffer()).getData();
 
             JFrame frame = new JFrame() {
                 public void paint(Graphics g) {
-                    g.drawImage(img, 0, 0, null);
+                    g.drawImage(img, 0, 0, getWidth(), getHeight(), null);
                 }
             };
             frame.setSize(Width, Height);
@@ -404,11 +406,11 @@ public class NoSyncLife {
         width = Math.max(width, rle.getW());
         height = Math.max(height, rle.getH());
         int[] state = new int[width * height];
-        int x0 = (width - rle.getW())/2;
-        int y0 = (height - rle.getH())/2;
-        for (int x=0; x<rle.getW(); ++x) {
-            for (int y=0; y<rle.getH(); ++y) {
-                state[(y+y0)*width + x+x0] = rle.getState(x, y);
+        int x0 = (width - rle.getW()) / 2;
+        int y0 = (height - rle.getH()) / 2;
+        for (int x = 0; x < rle.getW(); ++x) {
+            for (int y = 0; y < rle.getH(); ++y) {
+                state[(y + y0) * width + x + x0] = rle.getState(x, y);
             }
         }
         return new NoSyncLife(width, height, time, par, vis, state);
@@ -428,7 +430,7 @@ public class NoSyncLife {
         boolean vis = true;
         RLE rle = null;
 
-        for (int i=0; i<args.length; i++) {
+        for (int i = 0; i < args.length; i++) {
             if (args[i].equals("-w")) {
                 width = Integer.parseInt(args[++i]);
             }

@@ -17,6 +17,7 @@
 package org.sync;
 
 import org.junit.Assert;
+import org.junit.Ignore;
 import org.junit.Test;
 
 public class NoSyncLifeTest {
@@ -59,7 +60,8 @@ public class NoSyncLifeTest {
         }
     }
 
-//    @Test
+    @Ignore
+    @Test
     public void testInfinite() {
         int generations = 10000;
         int threads = 32;

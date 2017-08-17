@@ -38,10 +38,10 @@ So, here it is, an "asynchronous parallel wait-free unsynchronized" implementati
 
 The project uses Java 8 and Maven (3.3.9), though it doesn't really have any dependencies.
 To run tests:
-```shell
+```
     mvn test
 ```
-To run indefinite tests, uncomment the @Test annotation for testInfinite() in [NoSyncLifeTest.java](src/test/java/org/sync/NoSyncLifeTest.java)
+To run indefinite tests, comment out the @Ignore annotation for testInfinite() in [NoSyncLifeTest.java](src/test/java/org/sync/NoSyncLifeTest.java)
 To run visualization, do either
 ```shell
     mvn exec:java
@@ -69,7 +69,7 @@ To build
 To run visualization
 ```shell
     java -cp target/classes org.sync.NoSyncLife -t 10000 -p 8
-    java -cp target/classes org.sync.NoSyncLife -t 10000 -p 8 -h 1200 src/main/resources/DecimalCounter.rle
+    java -cp target/classes org.sync.NoSyncLife -t 10000 -p 8 -w 860 -h 1200 src/main/resources/DecimalCounter.rle
 ```
 To test
 ```shell
