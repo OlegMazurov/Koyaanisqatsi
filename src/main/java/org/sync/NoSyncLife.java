@@ -36,6 +36,7 @@ public class NoSyncLife {
     private static final int STATE0 = 0;
     private static final int STATE1 = 1;
     private static final int MAXNGHBR = 8;
+    private static final int T0 = 0;
     private static final int[] COLORS = {
             0xffffff, 0xff0000, 0x00ff00, 0x0000ff,
             0xffff00, 0xff00ff, 0x00ffff, 0x80ff00,
@@ -324,7 +325,7 @@ public class NoSyncLife {
     {
         // Run concurrently
         Thread[] threads = new Thread[nThreads];
-        for (int t=0; t<threads.length; ++t) {
+        for (int t = 0; t < threads.length; ++t) {
             final int id = t;
             Thread thread = new Thread(() -> runUnsync(id));
             threads[t] = thread;
@@ -359,7 +360,7 @@ public class NoSyncLife {
         Width = w;
         Height = h;
         L = Width * Height;
-        maxTime = t;
+        maxTime = T0 + t;
         nThreads = p;
         vis = v;
 
@@ -387,16 +388,19 @@ public class NoSyncLife {
 
         // Initialize the state
         state = new int[L * 3];
+        int off1 = T0 & 0x1;
+        int off0 = 1 - off1;
+        int S0 = (T0 - 1) << 1;
         for (int r = 0; r < Height; ++r)
         for (int c = 0; c < Width; ++c) {
-            int idx = r*Width + c;
-            int st = s[idx] == 0 ? STATE0 : STATE1;
-            state[3 * idx + 1] = (1 << 1) | st;
-            int R = st;
-            for (int n = 1; n <= MAXNGHBR; ++n) {
-                R ^= s[getNeighbor(idx, n)] == 0 ? STATE0 : STATE1;
+            int idx = r * Width + c;
+            state[3 * idx + off0] = S0;
+            int S1 = (T0 << 1) | (s[idx] == 0 ? STATE0 : STATE1);
+            state[3 * idx + off1] = S1;
+            for (int n = 0; n <= MAXNGHBR; ++n) {
+                int nidx = getNeighbor(idx, n);
+                state[3 * nidx + 2] ^= S1;
             }
-            state[3 * idx + 2] = (1 << 1) | R;
         }
     }
 
