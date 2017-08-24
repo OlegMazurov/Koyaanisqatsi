@@ -35,7 +35,6 @@ public class NoSyncLife {
 
     private static final int STATE0 = 0;
     private static final int STATE1 = 1;
-    private static final int MAXNGHBR = 8;
     private static final int T0 = 0;
     private static final int[] COLORS = {
             0xffffff, 0xff0000, 0x00ff00, 0x0000ff,
@@ -44,12 +43,26 @@ public class NoSyncLife {
 
     private final int Width;
     private final int Height;
-    private final int L;
-    private final int[] state;
+    private final Cell[] cells;
     private final int maxTime;
     private final int nThreads;
     private final boolean vis;
     private int[] imgData;
+
+    private class Cell {
+        private int idx;
+        private int[] state;
+        private Cell[] neighbors;
+
+        public Cell(int i, int s) {
+            idx = i;
+            state = new int[3];
+            int off = T0 & 0x1;
+            state[1 - off] = (T0 - 1) << 1;
+            state[off] = (T0 << 1) | s;
+            neighbors = new Cell[8];
+        }
+    }
 
     private static class PseudoRandom {
         static final int FACTOR1 = 2999;
@@ -67,82 +80,41 @@ public class NoSyncLife {
         }
     }
 
-    /**
-     * Cell neighbors wrapped around a torus:
-     *       -------------
-     *    +1 | 7 | 6 | 5 |
-     *       -------------
-     *     r | 8 | 0 | 4 |
-     *       -------------
-     *    -1 | 1 | 2 | 3 |
-     *       -------------
-     *        -1   c  +1
-     */
-    private int getNeighbor(int idx, int i)
-    {
-        int r = idx / Width;
-        int c = idx % Width;
-        switch (i) {
-            case 1:
-                if (--c < 0) c += Width;
-            case 2:
-                if (--r < 0) r += Height;
-                break;
-            case 3:
-                if (--r < 0) r += Height;
-            case 4:
-                if (++c == Width) c = 0;
-                break;
-            case 5:
-                if (++c == Width) c = 0;
-            case 6:
-                if (++r == Height) r = 0;
-                break;
-            case 7:
-                if (++r == Height) r = 0;
-            case 8:
-                if (--c < 0) c += Width;
-                break;
-        }
-        return r * Width + c;
-    }
-
     private void runUnsync(int id)
     {
         PseudoRandom rnd = new PseudoRandom(id);
 
         // Start apart
-        int idx = L * id / nThreads;
+        Cell cur = cells[cells.length * id / nThreads];
 
         mainLoop:
         for (;;) {
-            int s0 = state[3 * idx];
-            int s1 = state[3 * idx + 1];
+            int s0 = cur.state[0];
+            int s1 = cur.state[1];
             int S0 = Math.min(s0, s1);
             int S1 = Math.max(s0, s1);
-            int S2 = state[3 * idx + 2];
+            int S2 = cur.state[2];
 
             int TS0 = S0 >> 1;
             int TS1 = S1 >> 1;
             int TS2 = S2 >> 1;
 
             if (TS2 < TS1) {
-                int sidx = -1;
+                Cell next = null;
                 int off = TS1 & 0x1;
                 int cnt = 0;
                 int V = S1;
-                for (int n = 1; n <= MAXNGHBR; ++n) {
-                    int nidx = getNeighbor(idx, n);
-                    int val = state[3 * nidx + off];
+                for (Cell neighbor : cur.neighbors) {
+                    int val = neighbor.state[off];
                     if ((val >> 1) == TS1) {
                         V ^= val;
                     }
                     else if (rnd.nextInt(++cnt) == 0) {
-                        sidx = nidx;
+                        next = neighbor;
                     }
                 }
                 if (cnt == 0) {
-                    state[3 * idx + 2] = V;
+                    cur.state[2] = V;
                     continue mainLoop;
                 }
 
@@ -150,18 +122,17 @@ public class NoSyncLife {
                     cnt = 0;
                     off = TS0 & 0x1;
                     V = S0;
-                    for (int n = 1; n <= MAXNGHBR; ++n) {
-                        int nidx = getNeighbor(idx, n);
-                        int val = state[3 * nidx + off];
+                    for (Cell neighbor : cur.neighbors) {
+                        int val = neighbor.state[off];
                         if ((val >> 1) == TS0) {
                             V ^= val;
                         }
                         else if (rnd.nextInt(++cnt) == 0) {
-                            sidx = nidx;
+                            next = neighbor;
                         }
                     }
                     if (cnt == 0) {
-                        state[3 * idx + 2] = V;
+                        cur.state[2] = V;
                         continue mainLoop;
                     }
                 }
@@ -169,99 +140,97 @@ public class NoSyncLife {
                     cnt = 0;
                     off = TS0 & 0x1;
                     V = S0 ^ S2;
-                    for (int n = 1; n <= MAXNGHBR; ++n) {
-                        int nidx = getNeighbor(idx, n);
-                        int val = state[3 * nidx + off];
+                    for (Cell neighbor : cur.neighbors) {
+                        int val = neighbor.state[off];
                         if ((val >> 1) == TS0) {
                             V ^= val;
                         }
                         else if (rnd.nextInt(++cnt) == 0) {
-                            sidx = nidx;
+                            next = neighbor;
                         }
                     }
                     if (cnt == 1) {
-                        state[3 * sidx + off] = V;
+                        next.state[off] = V;
                         continue mainLoop;
                     }
                 }
                 else {
-                    sidx = idx;
+                    next = cur;
                     cnt = 1;
                     off = TS2 & 0x1;
                     V = S2;
-                    for (int n = 1; n <= MAXNGHBR; ++n) {
-                        int nidx = getNeighbor(idx, n);
-                        int val = state[3 * nidx + off];
+                    for (Cell neighbor : cur.neighbors) {
+                        int val = neighbor.state[off];
                         if ((val >> 1) == TS2) {
                             V ^= val;
                         }
                         else if (rnd.nextInt(++cnt) == 0) {
-                            sidx = nidx;
+                            next = neighbor;
                         }
                     }
                     if (cnt == 1) {
-                        state[3 * sidx + off] = V;
+                        next.state[off] = V;
                         continue mainLoop;
                     }
                 }
-                idx = sidx;
+                cur = next;
             }
             else if (TS2 == TS1) {
-                int sidx = -1;
+                Cell next = null;
                 int off = TS2 & 0x1;
                 int cnt = 0;
                 int sum = 0;
 
                 int V = S1 ^ S2;
-                for (int n = 1; n <= MAXNGHBR; ++n) {
-                    int nidx = getNeighbor(idx, n);
-                    int val = state[3 * nidx + off];
+                for (Cell neighbor : cur.neighbors) {
+                    int val = neighbor.state[off];
                     if ((val >> 1) == TS2) {
                         V ^= val;
                         sum += val & 0x1;
                     }
                     else if (rnd.nextInt(++cnt) == 0) {
-                        sidx = nidx;
+                        next = neighbor;
                     }
                 }
                 if (cnt == 1) {
-                    state[3 * sidx + off] = V;
+                    next.state[off] = V;
                     sum += V & 0x1;
                     cnt = 0;
                 }
 
                 int cnt2 = cnt;
-                int ridx = -1;
-                for (int n = 1; n <= MAXNGHBR; ++n) {
-                    int nidx = getNeighbor(idx, n);
-                    int val = state[3 * nidx + 2];
+                Cell rnext = null;
+                for (Cell neighbor : cur.neighbors) {
+                    int val = neighbor.state[2];
                     if ((val >> 1) <= TS2) {
                         if ((val >> 1) < TS2) {
                             ++cnt;
-                            ridx = nidx;
+                            rnext = neighbor;
                         }
                         if (cnt2 > 0 && rnd.nextInt(++cnt2) == 0) {
-                            sidx = nidx;
+                            next = neighbor;
                         }
                     }
                 }
                 if (cnt > 0) {
-                    idx = ridx != -1 ? ridx : sidx;
+                    cur = rnext != null ? rnext : next;
                     continue mainLoop;
                 }
 
                 // Are we done?
                 if (TS1 == maxTime) {
-                    for (int n = 0; n < L; ++n) {
-                        if (++idx == L) idx = 0;
-                        if (Math.max(state[3 * idx], state[3 * idx + 1]) >> 1 != maxTime) continue mainLoop;
+                    int idx = cur.idx;
+                    for (int n = 0; n < cells.length; ++n) {
+                        if (++idx == cells.length) idx = 0;
+                        cur = cells[idx];
+                        if (Math.max(cur.state[0], cur.state[1]) >> 1 != maxTime) continue mainLoop;
                     }
                     return;
                 }
 
                 // Apply the rule of Life
                 int nextState = sum < 2 ? STATE0 : sum == 2 ? (S1 & 0x1) : sum == 3 ? STATE1 : STATE0;
-                state[3 * idx + 1 - off] = ((TS1 + 1) << 1) | nextState;
+                cur.state[1 - off] = ((TS1 + 1) << 1) | nextState;
 
                 if (vis) {
                     // Color live cells according to the current thread id
@@ -270,42 +239,40 @@ public class NoSyncLife {
                     //int color = COLORS[id % COLORS.length];
                     // Color all cells according to the current generation
                     //int color = COLORS[TS1 % COLORS.length];
-                    imgData[idx] = color;
+                    imgData[cur.idx] = color;
                 }
             }
             else {
                 int off = TS2 & 0x1;
-                int cnt = 1, sidx = idx;
+                int cnt = 1;
+                Cell next = cur;
                 int V = S2;
-                for (int n = 1; n <= MAXNGHBR; ++n) {
-                    int nidx = getNeighbor(idx, n);
-                    int val = state[3 * nidx + off];
+                for (Cell neighbor : cur.neighbors) {
+                    int val = neighbor.state[off];
                     if ((val >> 1) == TS2) {
                         V ^= val;
                     }
                     else {
                         if (rnd.nextInt(++cnt) == 0) {
-                            sidx = nidx;
+                            next = neighbor;
                         }
                     }
                 }
                 if (cnt == 1) {
-                    state[3 * sidx + off] = V;
-                    continue mainLoop;
+                    next.state[off] = V;
                 }
 
                 off = TS1 & 0x1;
                 cnt = 0;
                 int sum = 0;
-                for (int n = 1; n <= MAXNGHBR; ++n) {
-                    int nidx = getNeighbor(idx, n);
-                    int val = state[3 * nidx + off];
+                for (Cell neighbor : cur.neighbors) {
+                    int val = neighbor.state[off];
                     if ((val >> 1) == TS1) {
                         sum += val & 0x1;
                     }
                     else {
                         if (rnd.nextInt(++cnt) == 0) {
-                            sidx = nidx;
+                            next = neighbor;
                         }
                     }
                 }
@@ -315,8 +282,8 @@ public class NoSyncLife {
 
                 // Apply the rule of Life
                 int nextState = sum < 2 ? STATE0 : sum == 2 ? (S1 & 0x1) : sum == 3 ? STATE1 : STATE0;
-                state[3 * idx + 1 - off] = ((TS1 + 1) << 1) | nextState;
-                idx = sidx;
+                cur.state[1 - off] = ((TS1 + 1) << 1) | nextState;
+                cur = next;
             }
         }
     }
@@ -347,19 +314,58 @@ public class NoSyncLife {
         for (int r = 0; r < Height; ++r) {
             sb.setLength(0);
             for (int c = 0; c < Width; ++c) {
-                int idx = 3 * (r * Width + c);
-                sb.append(Math.max(state[idx], state[idx + 1]) & 0x1);
+                Cell cell = cells[r * Width + c];
+                sb.append(Math.max(cell.state[0], cell.state[1]) & 0x1);
             }
             result[r] = sb.toString();
         }
         return result;
     }
 
+    /**
+     * Cell neighbors wrapped around a torus:
+     *       -------------
+     *    +1 | 6 | 5 | 4 |
+     *       -------------
+     *     r | 7 |   | 3 |
+     *       -------------
+     *    -1 | 0 | 1 | 2 |
+     *       -------------
+     *        -1   c  +1
+     */
+    private int getNeighbor(int idx, int i)
+    {
+        int r = idx / Width;
+        int c = idx % Width;
+        switch (i) {
+            case 0:
+                if (--c < 0) c += Width;
+            case 1:
+                if (--r < 0) r += Height;
+                break;
+            case 2:
+                if (--r < 0) r += Height;
+            case 3:
+                if (++c == Width) c = 0;
+                break;
+            case 4:
+                if (++c == Width) c = 0;
+            case 5:
+                if (++r == Height) r = 0;
+                break;
+            case 6:
+                if (++r == Height) r = 0;
+            case 7:
+                if (--c < 0) c += Width;
+                break;
+        }
+        return r * Width + c;
+    }
+
     public NoSyncLife(int w, int h, int t, int p, boolean v, int[] s)
     {
         Width = w;
         Height = h;
-        L = Width * Height;
         maxTime = T0 + t;
         nThreads = p;
         vis = v;
@@ -387,19 +393,19 @@ public class NoSyncLife {
         }
 
         // Initialize the state
-        state = new int[L * 3];
-        int off1 = T0 & 0x1;
-        int off0 = 1 - off1;
-        int S0 = (T0 - 1) << 1;
-        for (int r = 0; r < Height; ++r)
-        for (int c = 0; c < Width; ++c) {
-            int idx = r * Width + c;
-            state[3 * idx + off0] = S0;
-            int S1 = (T0 << 1) | (s[idx] == 0 ? STATE0 : STATE1);
-            state[3 * idx + off1] = S1;
-            for (int n = 0; n <= MAXNGHBR; ++n) {
-                int nidx = getNeighbor(idx, n);
-                state[3 * nidx + 2] ^= S1;
+        cells = new Cell[Width * Height];
+        for (int idx = 0; idx < cells.length; ++idx) {
+            Cell cell = new Cell(idx, s[idx] == 0 ? STATE0 : STATE1);
+            cells[idx] = cell;
+        }
+        for (Cell cell : cells) {
+            int S = cell.state[T0 & 0x1];
+            cell.state[2] ^= S;
+            for (int n = 0; n < cell.neighbors.length; ++n) {
+                int nidx = getNeighbor(cell.idx, n);
+                Cell neighbor = cells[nidx];
+                cell.neighbors[n] = neighbor;
+                neighbor.state[2] ^= S;
             }
         }
     }
@@ -470,6 +476,6 @@ public class NoSyncLife {
         for (String str : state) {
             System.out.println(str);
         }
-        System.out.println("Time: " + (end-start) + " ms");
+        System.out.println("Score: " + (1000l * time * lf.Width * lf.Height / (end-start)) + " ops/sec");
     }
 }
