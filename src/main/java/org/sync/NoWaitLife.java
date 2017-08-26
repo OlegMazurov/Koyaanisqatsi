@@ -105,7 +105,7 @@ public class NoWaitLife extends Life {
                 nThreads,
                 ForkJoinPool.defaultForkJoinWorkerThreadFactory,
                 (t,e) -> e.printStackTrace(),
-                true);
+                false);
 
         for (Cell cell : cells) {
             pool.execute(cell.neighbors[0]);
