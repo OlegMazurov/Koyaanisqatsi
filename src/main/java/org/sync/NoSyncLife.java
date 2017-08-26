@@ -16,38 +16,16 @@
 
 package org.sync;
 
-import javax.swing.JFrame;
-import javax.swing.Timer;
-import java.awt.Graphics;
-import java.awt.event.WindowAdapter;
-import java.awt.event.WindowEvent;
-import java.awt.image.BufferedImage;
-import java.awt.image.DataBufferInt;
-
 /**
- * Chaotic Life
+ * Asynchronous parallel wait-free unsynchronized implementation of Life
  *
  * https://github.com/OlegMazurov/Koyaanisqatsi
  *
  */
 
-public class NoSyncLife {
+public class NoSyncLife extends Life {
 
-    private static final int STATE0 = 0;
-    private static final int STATE1 = 1;
-    private static final int T0 = 0;
-    private static final int[] COLORS = {
-            0xffffff, 0xff0000, 0x00ff00, 0x0000ff,
-            0xffff00, 0xff00ff, 0x00ffff, 0x80ff00,
-    };
-
-    private final int Width;
-    private final int Height;
     private final Cell[] cells;
-    private final int maxTime;
-    private final int nThreads;
-    private final boolean vis;
-    private int[] imgData;
 
     private class Cell {
         private int idx;
@@ -232,15 +210,12 @@ public class NoSyncLife {
                 int nextState = sum < 2 ? STATE0 : sum == 2 ? (S1 & 0x1) : sum == 3 ? STATE1 : STATE0;
                 cur.state[1 - off] = ((TS1 + 1) << 1) | nextState;
 
-                if (vis) {
-                    // Color live cells according to the current thread id
-                    int color = nextState == STATE0 ? 0 : COLORS[id % COLORS.length];
-                    // Color all cells according to the current thread id
-                    //int color = COLORS[id % COLORS.length];
-                    // Color all cells according to the current generation
-                    //int color = COLORS[TS1 % COLORS.length];
-                    imgData[cur.idx] = color;
-                }
+                // Color live cells according to the current thread id
+                setColor(cur.idx, nextState == STATE0 ? 0 : id + 1);
+                // Color all cells according to the current thread id
+                //setColor(cur.idx, id + 1)
+                // Color all cells according to the current generation
+                //setColor(cur.idx, TS1);
             }
             else {
                 int off = TS2 & 0x1;
@@ -364,35 +339,9 @@ public class NoSyncLife {
 
     public NoSyncLife(int w, int h, int t, int p, boolean v, int[] s)
     {
-        Width = w;
-        Height = h;
-        maxTime = T0 + t;
-        nThreads = p;
-        vis = v;
+        super(w, h, t, p, v);
 
-        // Initialize visualization
-        if (vis) {
-            BufferedImage img = new BufferedImage(Width, Height, BufferedImage.TYPE_INT_RGB);
-            imgData = ((DataBufferInt)img.getRaster().getDataBuffer()).getData();
-
-            JFrame frame = new JFrame() {
-                public void paint(Graphics g) {
-                    g.drawImage(img, 0, 0, getWidth(), getHeight(), null);
-                }
-            };
-            frame.setSize(Width, Height);
-            frame.addWindowListener(new WindowAdapter() {
-                public void windowClosing(WindowEvent e) {
-                    System.exit(0);
-                }
-            });
-            frame.setVisible(true);
-
-            Timer timer = new Timer(40, (e) -> frame.repaint());
-            timer.start();
-        }
-
-        // Initialize the state
+        // Initialize cells
         cells = new Cell[Width * Height];
         for (int idx = 0; idx < cells.length; ++idx) {
             Cell cell = new Cell(idx, s[idx] == 0 ? STATE0 : STATE1);
@@ -408,74 +357,5 @@ public class NoSyncLife {
                 neighbor.state[2] ^= S;
             }
         }
-    }
-
-    public static NoSyncLife fromRLE(RLE rle, int width, int height, int time, int par, boolean vis)
-    {
-        // Re-center
-        width = Math.max(width, rle.getW());
-        height = Math.max(height, rle.getH());
-        int[] state = new int[width * height];
-        int x0 = (width - rle.getW()) / 2;
-        int y0 = (height - rle.getH()) / 2;
-        for (int x = 0; x < rle.getW(); ++x) {
-            for (int y = 0; y < rle.getH(); ++y) {
-                state[(y + y0) * width + x + x0] = rle.getState(x, y);
-            }
-        }
-        return new NoSyncLife(width, height, time, par, vis, state);
-    }
-
-    public static NoSyncLife fromRLE(RLE rle, int time, int par, boolean vis)
-    {
-        return fromRLE(rle, rle.getW(), rle.getH(), time, par, vis);
-    }
-
-    public static void main(String[] args)
-    {
-        int width = 0;
-        int height = 0;
-        int time = 1000;
-        int parallelism = 1;
-        boolean vis = true;
-        RLE rle = null;
-
-        for (int i = 0; i < args.length; i++) {
-            if (args[i].equals("-w")) {
-                width = Integer.parseInt(args[++i]);
-            }
-            else if (args[i].equals("-h")) {
-                height = Integer.parseInt(args[++i]);
-            }
-            else if (args[i].equals("-p")) {
-                parallelism = Integer.parseInt(args[++i]);
-            }
-            else if (args[i].equals("-t")) {
-                time = Integer.parseInt(args[++i]);
-            }
-            else if (args[i].equals("-novis")) {
-                vis = false;
-            }
-            else {
-                rle = RLE.fromFile(args[i]);
-                if (rle == null) {
-                    return;
-                }
-            }
-        }
-
-        if (rle == null) {
-            rle = RLE.getAcorn();
-        }
-
-        NoSyncLife lf = fromRLE(rle, width, height, time, parallelism, vis);
-        long start = System.currentTimeMillis();
-        String[] state = lf.execute();
-        long end = System.currentTimeMillis();
-
-        for (String str : state) {
-            System.out.println(str);
-        }
-        System.out.println("Score: " + (1000l * time * lf.Width * lf.Height / (end-start)) + " ops/sec");
     }
 }

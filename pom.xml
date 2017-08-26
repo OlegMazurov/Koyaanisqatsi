@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
-    <groupId>org.sync.NoSyncLife</groupId>
-    <artifactId>NoSyncLife</artifactId>
+    <groupId>org.sync.ChaoticLife</groupId>
+    <artifactId>ChaoticLife</artifactId>
     <version>1.0.0</version>
     <name>${project.artifactId}</name>
     <description>Koyaanisqatsi (Chaotic Life)</description>
@@ -45,15 +45,29 @@
                     <execution>
                     <id>default-cli</id>
                     <configuration>
-                        <mainClass>org.sync.NoSyncLife</mainClass>
+                        <mainClass>org.sync.Life</mainClass>
                         <commandlineArgs>-w 400 -h 400 -t 8000 -p 8</commandlineArgs>
                     </configuration>
                     </execution>
                     <execution>
                         <id>counter</id>
                         <configuration>
-                            <mainClass>org.sync.NoSyncLife</mainClass>
+                            <mainClass>org.sync.Life</mainClass>
                             <commandlineArgs>-h 1200 -w 860 -t 20000 -p 8 DecimalCounter.rle</commandlineArgs>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>acorn2</id>
+                        <configuration>
+                            <mainClass>org.sync.Life</mainClass>
+                            <commandlineArgs>-T NOWAIT -w 400 -h 400 -t 8000 -p 8</commandlineArgs>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>counter2</id>
+                        <configuration>
+                            <mainClass>org.sync.Life</mainClass>
+                            <commandlineArgs>-T NOWAIT -h 1200 -w 860 -t 20000 -p 8 DecimalCounter.rle</commandlineArgs>
                         </configuration>
                     </execution>
                 </executions>

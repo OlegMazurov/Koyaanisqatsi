@@ -20,36 +20,36 @@ import org.junit.Assert;
 import org.junit.Ignore;
 import org.junit.Test;
 
-public class NoSyncLifeTest {
+public class LifeTest {
 
     @Test(timeout = 60000)
     public void testFast() {
         // Test 8-thread parallel execution against serial
         RLE acorn = RLE.getAcorn();
-        NoSyncLife sample = NoSyncLife.fromRLE(acorn, 100, 1, false);
+        Life sample = Life.fromRLE(acorn, Life.Type.NOSYNC, 100, 1, false);
         String[] golden = sample.execute();
 
-        sample = NoSyncLife.fromRLE(acorn, 100, 8, false);
+        sample = Life.fromRLE(acorn, Life.Type.NOSYNC,100, 8, false);
         String[] state = sample.execute();
+        Assert.assertArrayEquals(golden, state);
 
+        sample = Life.fromRLE(acorn, Life.Type.NOWAIT, 100, 8, false);
+        state = sample.execute();
         Assert.assertArrayEquals(golden, state);
     }
 
-    @Test(timeout = 300000)
-    public void testLong() {
-        int generations = 2000;
+    private void testLong(int generations, Life.Type type) {
         RLE acorn = RLE.getAcorn();
-
-        System.out.print("Running test for " + generations +" generations with 1 thread");
-        NoSyncLife sample = NoSyncLife.fromRLE(acorn, generations, 1, false);
+        System.out.print("Running " + type + " for " + generations +" generations with 1 thread");
+        Life sample = Life.fromRLE(acorn, type, generations, 1, false);
         long start = System.currentTimeMillis();
         String[] golden = sample.execute();
         long time1 = System.currentTimeMillis() - start;
         System.out.println(", base time: " + time1 + " ms");
 
         for (int p = 2; p <= 512; p *= 2) {
-            System.out.print("Running test for " + generations +" generations with " + p + " threads");
-            sample = NoSyncLife.fromRLE(acorn, generations, p, false);
+            System.out.print("Running " + type + " for " + generations +" generations with " + p + " threads");
+            sample = Life.fromRLE(acorn, type, generations, p, false);
             start = System.currentTimeMillis();
             String[] state = sample.execute();
             long time = System.currentTimeMillis() - start;
@@ -58,25 +58,31 @@ public class NoSyncLifeTest {
 
             System.out.println(", time: " + time + " ms, speedup: " + (100 * time1 / time)/100d);
         }
+
     }
 
-    @Ignore
-    @Test
-    public void testInfinite() {
-        int generations = 10000;
-        int threads = 32;
-        RLE acorn = RLE.getAcorn();
+    @Test(timeout = 300000)
+    public void testLongNoSync() {
+        testLong(2000, Life.Type.NOSYNC);
+    }
 
-        System.out.print("Running test for " + generations +" generations with 1 thread");
-        NoSyncLife sample = NoSyncLife.fromRLE(acorn, generations, 1, false);
+    @Test(timeout = 300000)
+    public void testLongNoWait() {
+        testLong(2000, Life.Type.NOWAIT);
+    }
+
+    private void testInfinite(int generations, Life.Type type, int threads) {
+        RLE acorn = RLE.getAcorn();
+        System.out.print("Running " + type + " for " + generations +" generations with 1 thread");
+        Life sample = Life.fromRLE(acorn, type, generations, 1, false);
         long start = System.currentTimeMillis();
         String[] golden = sample.execute();
         long time1 = System.currentTimeMillis() - start;
         System.out.println(", base time: " + time1 + " ms");
 
         for (;;) {
-            System.out.print("Running test for " + generations +" generations with " + threads + " threads");
-            sample = NoSyncLife.fromRLE(acorn, generations, threads, false);
+            System.out.print("Running " + type + " for " + generations +" generations with " + threads + " threads");
+            sample = Life.fromRLE(acorn, type, generations, threads, false);
             start = System.currentTimeMillis();
             String[] state = sample.execute();
             long time = System.currentTimeMillis() - start;
@@ -85,6 +91,18 @@ public class NoSyncLifeTest {
 
             System.out.println(", time: " + time + " ms");
         }
+    }
+
+    @Ignore
+    @Test
+    public void testInfiniteNoSync() {
+        testInfinite(10000, Life.Type.NOSYNC, 32);
+    }
+
+    @Ignore
+    @Test
+    public void testInfiniteNoWait() {
+        testInfinite(10000, Life.Type.NOWAIT, 32);
     }
 
 }
