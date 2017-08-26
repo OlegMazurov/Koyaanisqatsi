@@ -45,7 +45,7 @@ To run tests:
 ```
     mvn test
 ```
-To run indefinite tests, comment out the @Ignore annotation for testInfinite() in [NoSyncLifeTest.java](src/test/java/org/sync/NoSyncLifeTest.java).
+To run indefinite tests, comment out the @Ignore annotation for testInfinite() in [LifeTest.java](src/test/java/org/sync/LifeTest.java).
 
 To run visualization, do one of the following:
 ```shell
