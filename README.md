@@ -15,7 +15,7 @@ There is some analogy here with breadth-first and depth-first search algorithms 
 Another analogy is with the idea of the "global clock": the synchronous approach implements it, the asynchronous one rejects it.
 
 ### Serial vs. Parallel
-If we want to parallelize our algorithms we find that the synchronous one is "embarrassingly parallel" within one generation of updates but imposes a barrier for all parallel processes between two generations. It's a straightforward parallelization approach to a straightforward synchronous implementation. One thing is obvious: such implementation won't scale: just imagine a parallel computer the size of the Solar system and what it would take to reach a barrier for all its parallel computations - I'll call it the Solar system scalability test.
+If we want to parallelize our algorithms we find that the synchronous one is "embarrassingly parallel" within one generation of updates but imposes a barrier for all parallel processes between two generations. It's a straightforward parallelization approach to a straightforward synchronous implementation (see [OrdinaryLife.java](src/main/java/org/sync/OrdinaryLife.java)). One thing is obvious: such implementation won't scale: just imagine a parallel computer the size of the Solar system and what it would take to reach a barrier for all its parallel computations - I'll call it the Solar system scalability test.
 
 The asynchronous approach is trickier to parallelize but if you are familiar with Go you can imagine a network of go-routines and channels that will express all concurrency there is in Life. Will it pass the Solar system scalability test? Yes, but on one condition: if all your communicating serial processes are physical. We can easily create millions of go-routines on contemporary computers but we still have only so many cores and to execute our highly concurrent program we need to dynamically map our cores to our go-routines. In other words, we need a scheduler. And the problem is that it's very difficult for a scheduler to figure out which go-routine can make real progress, so, many of them will be allowed to run on a physical core only to find out that they still don't have enough input to compute their next state and have to loop back on the blocking select. The actual process, an OS thread, will never block but it will be running through lots of unnecessary switching to incomplete go-routines. Can we do better?
 
@@ -36,7 +36,7 @@ DispatchLife.c
 
 Can we eliminate synchronization, so that we wouldn't compromise correctness for more parallelism and better performance (not as dumb a trade-off as it may sound, but certainly not so much correctness)? Unsynchronized access to shared memory leads to data races - arguably the nastiest bugs in parallel programs. Can we compute reliably with data races? To the best of my knowledge the answer so far has been a firm no. If the answer is wrong, what could possibly undo the devastating effect of data races at scale? If two threads are simultaneously writing the same value to the same memory location, such data race is harmless. If one thread delays, however, the value may become obsolete and we'll need a way to detect and fix the error. To be able to do that we need to introduce redundancy into our computational process. If I were to describe my solution in one sentence, it would be "an error correcting code unfolding in time as computation".
 
-So, here it is, an "asynchronous parallel wait-free unsynchronized" implementation of Life ([NoSyncLife.java](src/main/java/org/sync/NoSyncLife.java)). Of course, this is just a proof of concept. How reliable is it? It's probably too soon to try to answer this question. The presented implementation does not achieve the full potential of the code but, I believe, is good enough to start a conversation.
+So, here it is, an "asynchronous parallel wait-free unsynchronized" implementation of Life (see [NoSyncLife.java](src/main/java/org/sync/NoSyncLife.java)). Of course, this is just a proof of concept. How reliable is it? It's probably too soon to try to answer this question. The presented implementation does not achieve the full potential of the code but, I believe, is good enough to start a conversation.
 
 ## How to build, test, and run
 
@@ -45,7 +45,7 @@ To run tests:
 ```
     mvn test
 ```
-To run indefinite tests, comment out the @Ignore annotation for testInfinite() in [LifeTest.java](src/test/java/org/sync/LifeTest.java).
+To run indefinite tests, comment out the @Ignore annotation for testInfiniteNoSync() in [LifeTest.java](src/test/java/org/sync/LifeTest.java).
 
 To run visualization, do one of the following:
 ```shell
@@ -53,6 +53,8 @@ To run visualization, do one of the following:
     mvn exec:java@counter   # NoSyncLife, DecimalCounter pattern
     mvn exec:java@acorn2    # NoWaitLife, Acorn pattern
     mvn exec:java@counter2  # NoWaitLife, DecimalCounter pattern
+    mvn exec:java@acorn3    # OrdinaryLife, Acorn pattern
+    mvn exec:java@counter3  # OrdinaryLife, DecimalCounter pattern
 ```
 To create a jar file:
 ```shell
@@ -60,7 +62,7 @@ To create a jar file:
 ```
 To run from jar:
 ```shell
-    java -jar target/ChaoticLife-1.0.0.jar [-T NOSYNC|NOWAIT] [-w width] [-h height] [-t generations] [-p threads] [-novis] [<file>.rle]
+    java -jar target/ChaoticLife-1.0.0.jar [-T NOSYNC|NOWAIT|ORDINARY] [-w width] [-h height] [-t generations] [-p threads] [-novis] [<file>.rle]
 ```
 
 ## How to build, test, and run without Maven
@@ -72,14 +74,15 @@ To build
 ```
 To run visualization
 ```shell
-    java -cp target/classes org.sync.Life -t 10000 -p 8
-    java -cp target/classes org.sync.Life -t 10000 -p 8 -w 860 -h 1200 src/main/resources/DecimalCounter.rle
-    java -cp target/classes org.sync.Life -T NOWAIT -t 10000 -p 8 -w 860 -h 1200 src/main/resources/DecimalCounter.rle
+    java -cp target/classes org.sync.NoSyncLife -t 10000 -p 8
+    java -cp target/classes org.sync.NoSyncLife -t 10000 -p 8 -w 860 -h 1400 src/main/resources/DecimalCounter.rle
+    java -cp target/classes org.sync.NoWaitLife -t 10000 -p 8 -w 860 -h 1400 src/main/resources/DecimalCounter.rle
+    java -cp target/classes org.sync.OrdinaryLife -t 10000 -p 8 -w 860 -h 1400 src/main/resources/DecimalCounter.rle
 ```
 To test
 ```shell
-    java -cp target/classes org.sync.Life -t 10000 -p 1 -novis > golden
-    while (true) do java -cp target/classes org.sync.Life -t 10000 -p 8 -novis > current && diff golden current; done
+    java -cp target/classes org.sync.OrdinaryLife -t 10000 -novis > golden
+    while (true) do java -cp target/classes org.sync.NoSyncLife -t 10000 -p 8 -novis > current && diff golden current; done
 ```
 
 ## License

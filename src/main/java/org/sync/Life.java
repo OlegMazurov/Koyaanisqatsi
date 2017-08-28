@@ -32,15 +32,16 @@ import java.awt.image.DataBufferInt;
 
 public abstract class Life {
 
-    public enum Type { NOSYNC, NOWAIT };
+    public enum Type { ORDINARY, NOSYNC, NOWAIT };
     protected static final int STATE0 = 0;
     protected static final int STATE1 = 1;
     protected static final int T0 = 0;
     private static final int[] COLORS = {
-            0x0,
-            0xffffff, 0xff0000, 0x00ff00, 0x0000ff,
-            0xffff00, 0xff00ff, 0x00ffff, 0x80ff00,
+            0xff8000, 0xffffff, 0xff0000, 0x00ff00,
+            0x0000ff, 0xffff00, 0xff00ff, 0x00ffff,
     };
+
+    protected static Type type = Type.NOSYNC;
 
     protected final int Width;
     protected final int Height;
@@ -50,11 +51,13 @@ public abstract class Life {
     private final boolean vis;
     private int[] imgData;
 
-    public abstract String[] execute();
+    public abstract void execute();
+
+    protected abstract int getState(int row, int col);
 
     protected void setColor(int idx, int color) {
         if (vis) {
-            imgData[idx] = COLORS[color % COLORS.length];
+            imgData[idx] = color == 0 ? 0 : COLORS[color % COLORS.length];
         }
     }
 
@@ -104,6 +107,9 @@ public abstract class Life {
 
         Life res = null;
         switch (type) {
+            case ORDINARY:
+                res = new OrdinaryLife(width, height, time, par, vis, state);
+                break;
             case NOSYNC:
                 res = new NoSyncLife(width, height, time, par, vis, state);
                 break;
@@ -122,13 +128,25 @@ public abstract class Life {
         return fromRLE(rle, type, rle.getW(), rle.getH(), time, par, vis);
     }
 
+    public String[] getResult() {
+        String[] result = new String[Height];
+        StringBuilder sb = new StringBuilder();
+        for (int r = 0; r < Height; ++r) {
+            sb.setLength(0);
+            for (int c = 0; c < Width; ++c) {
+                sb.append(getState(r, c));
+            }
+            result[r] = sb.toString();
+        }
+        return result;
+    }
+
     public static void main(String[] args)
     {
-        Type type = Type.NOSYNC;
         int width = 0;
         int height = 0;
-        int time = 1000;
-        int parallelism = 1;
+        int time = 10000;
+        int parallelism = Runtime.getRuntime().availableProcessors();
         boolean vis = true;
         RLE rle = null;
 
@@ -165,9 +183,10 @@ public abstract class Life {
 
         Life lf = fromRLE(rle, type, width, height, time, parallelism, vis);
         long start = System.currentTimeMillis();
-        String[] state = lf.execute();
+        lf.execute();
         long end = System.currentTimeMillis();
 
+        String[] state = lf.getResult();
         for (String str : state) {
             System.out.println(str);
         }

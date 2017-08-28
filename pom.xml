@@ -31,7 +31,7 @@
                 <configuration>
                     <archive>
                         <manifest>
-                            <mainClass>org.sync.NoSyncLife</mainClass>
+                            <mainClass>org.sync.Life</mainClass>
                         </manifest>
                     </archive>
                 </configuration>
@@ -53,21 +53,35 @@
                         <id>counter</id>
                         <configuration>
                             <mainClass>org.sync.Life</mainClass>
-                            <commandlineArgs>-h 1200 -w 860 -t 20000 -p 8 DecimalCounter.rle</commandlineArgs>
+                            <commandlineArgs>-h 1400 -w 860 -t 20000 -p 8 DecimalCounter.rle</commandlineArgs>
                         </configuration>
                     </execution>
                     <execution>
                         <id>acorn2</id>
                         <configuration>
-                            <mainClass>org.sync.Life</mainClass>
-                            <commandlineArgs>-T NOWAIT -w 400 -h 400 -t 8000 -p 8</commandlineArgs>
+                            <mainClass>org.sync.NoWaitLife</mainClass>
+                            <commandlineArgs>-w 400 -h 400 -t 8000 -p 8</commandlineArgs>
                         </configuration>
                     </execution>
                     <execution>
                         <id>counter2</id>
                         <configuration>
-                            <mainClass>org.sync.Life</mainClass>
-                            <commandlineArgs>-T NOWAIT -h 1200 -w 860 -t 20000 -p 8 DecimalCounter.rle</commandlineArgs>
+                            <mainClass>org.sync.NoWaitLife</mainClass>
+                            <commandlineArgs>-h 1400 -w 860 -t 20000 -p 8 DecimalCounter.rle</commandlineArgs>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>acorn3</id>
+                        <configuration>
+                            <mainClass>org.sync.OrdinaryLife</mainClass>
+                            <commandlineArgs>-w 400 -h 400 -t 8000 -p 8</commandlineArgs>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>counter3</id>
+                        <configuration>
+                            <mainClass>org.sync.OrdinaryLife</mainClass>
+                            <commandlineArgs>-h 1400 -w 860 -t 20000 -p 8 DecimalCounter.rle</commandlineArgs>
                         </configuration>
                     </execution>
                 </executions>

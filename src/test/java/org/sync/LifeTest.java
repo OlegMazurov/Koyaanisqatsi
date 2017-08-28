@@ -27,15 +27,20 @@ public class LifeTest {
         // Test 8-thread parallel execution against serial
         RLE acorn = RLE.getAcorn();
         Life sample = Life.fromRLE(acorn, Life.Type.NOSYNC, 100, 1, false);
-        String[] golden = sample.execute();
+        sample.execute();
+        String[] golden = sample.getResult();
 
-        sample = Life.fromRLE(acorn, Life.Type.NOSYNC,100, 8, false);
-        String[] state = sample.execute();
-        Assert.assertArrayEquals(golden, state);
+        sample = Life.fromRLE(acorn, Life.Type.ORDINARY, 100, 8, false);
+        sample.execute();
+        Assert.assertArrayEquals(golden, sample.getResult());
 
         sample = Life.fromRLE(acorn, Life.Type.NOWAIT, 100, 8, false);
-        state = sample.execute();
-        Assert.assertArrayEquals(golden, state);
+        sample.execute();
+        Assert.assertArrayEquals(golden, sample.getResult());
+
+        sample = Life.fromRLE(acorn, Life.Type.NOSYNC,100, 8, false);
+        sample.execute();
+        Assert.assertArrayEquals(golden, sample.getResult());
     }
 
     private void testLong(int generations, Life.Type type) {
@@ -43,22 +48,28 @@ public class LifeTest {
         System.out.print("Running " + type + " for " + generations +" generations with 1 thread");
         Life sample = Life.fromRLE(acorn, type, generations, 1, false);
         long start = System.currentTimeMillis();
-        String[] golden = sample.execute();
+        sample.execute();
         long time1 = System.currentTimeMillis() - start;
         System.out.println(", base time: " + time1 + " ms");
+        String[] golden = sample.getResult();
 
         for (int p = 2; p <= 512; p *= 2) {
             System.out.print("Running " + type + " for " + generations +" generations with " + p + " threads");
             sample = Life.fromRLE(acorn, type, generations, p, false);
             start = System.currentTimeMillis();
-            String[] state = sample.execute();
+            sample.execute();
             long time = System.currentTimeMillis() - start;
 
-            Assert.assertArrayEquals(golden, state);
+            Assert.assertArrayEquals(golden, sample.getResult());
 
             System.out.println(", time: " + time + " ms, speedup: " + (100 * time1 / time)/100d);
         }
 
+    }
+
+    @Test(timeout = 300000)
+    public void testLongOrdinary() {
+        testLong(2000, Life.Type.ORDINARY);
     }
 
     @Test(timeout = 300000)
@@ -76,21 +87,28 @@ public class LifeTest {
         System.out.print("Running " + type + " for " + generations +" generations with 1 thread");
         Life sample = Life.fromRLE(acorn, type, generations, 1, false);
         long start = System.currentTimeMillis();
-        String[] golden = sample.execute();
+        sample.execute();
         long time1 = System.currentTimeMillis() - start;
         System.out.println(", base time: " + time1 + " ms");
+        String[] golden = sample.getResult();
 
         for (;;) {
             System.out.print("Running " + type + " for " + generations +" generations with " + threads + " threads");
             sample = Life.fromRLE(acorn, type, generations, threads, false);
             start = System.currentTimeMillis();
-            String[] state = sample.execute();
+            sample.execute();
             long time = System.currentTimeMillis() - start;
 
-            Assert.assertArrayEquals(golden, state);
+            Assert.assertArrayEquals(golden, sample.getResult());
 
             System.out.println(", time: " + time + " ms");
         }
+    }
+
+    @Ignore
+    @Test
+    public void testInfiniteOrdinary() {
+        testInfinite(10000, Life.Type.ORDINARY, 32);
     }
 
     @Ignore

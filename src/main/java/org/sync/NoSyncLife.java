@@ -42,6 +42,11 @@ public class NoSyncLife extends Life {
         }
     }
 
+    protected int getState(int row, int col) {
+        Cell cell = cells[row * Width + col];
+        return Math.max(cell.state[0], cell.state[1]) & 0x1;
+    }
+
     private static class PseudoRandom {
         static final int FACTOR1 = 2999;
         static final int FACTOR2 = 7901;
@@ -263,7 +268,7 @@ public class NoSyncLife extends Life {
         }
     }
 
-    public String[] execute()
+    public void execute()
     {
         // Run concurrently
         Thread[] threads = new Thread[nThreads];
@@ -282,19 +287,6 @@ public class NoSyncLife extends Life {
         catch (InterruptedException ie) {
             ie.printStackTrace();
         }
-
-        // Produce result
-        String[] result = new String[Height];
-        StringBuilder sb = new StringBuilder();
-        for (int r = 0; r < Height; ++r) {
-            sb.setLength(0);
-            for (int c = 0; c < Width; ++c) {
-                Cell cell = cells[r * Width + c];
-                sb.append(Math.max(cell.state[0], cell.state[1]) & 0x1);
-            }
-            result[r] = sb.toString();
-        }
-        return result;
     }
 
     /**
@@ -357,5 +349,10 @@ public class NoSyncLife extends Life {
                 neighbor.state[2] ^= S;
             }
         }
+    }
+
+    public static void main(String[] args) {
+        type = Type.NOSYNC;
+        Life.main(args);
     }
 }

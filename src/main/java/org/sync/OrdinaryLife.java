@@ -16,56 +16,41 @@
 
 package org.sync;
 
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.ForkJoinTask;
-import java.util.concurrent.atomic.AtomicInteger;
-
+import java.util.concurrent.CyclicBarrier;
 
 /**
- * Asynchronous parallel wait-free implementation of Life
+ * Synchronous parallel implementation of Life
  *
  * https://github.com/OlegMazurov/Koyaanisqatsi
  *
  */
 
-public class NoWaitLife extends Life {
+public class OrdinaryLife extends Life {
 
     private final Cell[] cells;
-    private CountDownLatch finished;
+    private CyclicBarrier barrier;
+    private boolean useAlt;
 
     protected int getState(int row, int col) {
         Cell cell = cells[row * Width + col];
-        if (cell.time < cell.neighbors[0].time) {
+        if (useAlt) {
             cell = cell.neighbors[0];
         }
         return cell.state;
     }
 
-    private class Cell extends ForkJoinTask<Object>
-    {
-        private int idx;
+    private class Cell {
         private int state;
-        private int time;
         private Cell[] neighbors;
-        private AtomicInteger count;
 
         public Cell(int i, int s)
         {
-            idx = i;
             state = s;
-            time = 0;
             neighbors = new Cell[9];
-            count = new AtomicInteger(neighbors.length);
         }
 
-        /* Not used */
-        public Object getRawResult() { return null; }
-        protected void setRawResult(Object value) {}
-
-        protected boolean exec() {
+        void updateState() {
             state = neighbors[0].state;
-            time  = neighbors[0].time + 1;
             int sum = 0;
             for (int i = 1; i < neighbors.length; ++i) {
                 if (neighbors[i].state == STATE1) {
@@ -80,52 +65,58 @@ public class NoWaitLife extends Life {
             else if (sum == 3) {
                 state = STATE1;
             }
+        }
+    }
 
-            // Color live cells according to the current thread id
-            setColor(idx, state == STATE0 ? 0 : (int)Thread.currentThread().getId());
-            // Color all cells according to the current thread id
-            //setColor(idx, (int)Thread.currentThread().getId())
-            // Color all cells according to the current generation
-            //setColor(idx, TS1);
+    private void runStaticSchedule(int id) {
 
-            reinitialize();
-            count.set(neighbors.length);
-            if (time == maxTime) {
-                finished.countDown();
+        int minIdx = (int)((long)id * cells.length / nThreads);
+        int maxIdx = (int)((long)(id + 1) * cells.length / nThreads);
+
+        for (int time = 1; time <= maxTime; ++time) {
+
+            for (int idx = minIdx; idx < maxIdx; ++idx) {
+                Cell cell = useAlt ? cells[idx] : cells[idx].neighbors[0];
+                cell.updateState();
+
+                // Color live cells according to the current thread id
+                setColor(idx, cell.state == STATE0 ? 0 : id + 1);
+                // Color all cells according to the current thread id
+                //setColor(idx, (int)Thread.currentThread().getId())
+                // Color all cells according to the current generation
+                //setColor(idx, TS1);
             }
-            else {
-                for (Cell cell : neighbors) {
-                    if (cell.count.addAndGet(-1) == 0) {
-                        cell.fork();
-                    }
-                }
-            }
 
-            return false;
+            try {
+                barrier.await();
+            }
+            catch (Exception ex) {
+                System.err.println("ERROR in thread " + id);
+                ex.printStackTrace();
+                return;
+            }
         }
     }
 
     public void execute()
     {
-        finished = new CountDownLatch(Width * Height);
-
-        ForkJoinPool pool = new ForkJoinPool(
-                nThreads,
-                ForkJoinPool.defaultForkJoinWorkerThreadFactory,
-                (t,e) -> e.printStackTrace(),
-                false);
-
-        for (Cell cell : cells) {
-            pool.execute(cell.neighbors[0]);
+        // Run concurrently
+        Thread[] threads = new Thread[nThreads];
+        for (int t = 0; t < threads.length; ++t) {
+            final int id = t;
+            Thread thread = new Thread(() -> runStaticSchedule(id));
+            threads[t] = thread;
+            thread.start();
         }
 
         try {
-            finished.await();
+            for (Thread thread : threads) {
+                thread.join();
+            }
         }
-        catch (InterruptedException ex) {
-            ex.printStackTrace();
+        catch (InterruptedException ie) {
+            ie.printStackTrace();
         }
-        pool.shutdown();
     }
 
     private int getNeighbor(int r, int c, int i)
@@ -155,9 +146,7 @@ public class NoWaitLife extends Life {
         return r * Width + c;
     }
 
-
-    public NoWaitLife(int w, int h, int t, int p, boolean v, int[] s)
-    {
+    public OrdinaryLife(int w, int h, int t, int p, boolean v, int[] s) {
         super(w, h, t, p, v);
 
         // Initialize cells
@@ -183,11 +172,13 @@ public class NoWaitLife extends Life {
                 }
             }
         }
+        useAlt = false;
+
+        barrier = new CyclicBarrier(nThreads, () -> { useAlt = !useAlt; });
     }
 
     public static void main(String[] args) {
-        type = Type.NOWAIT;
+        type = Type.ORDINARY;
         Life.main(args);
     }
-
 }
