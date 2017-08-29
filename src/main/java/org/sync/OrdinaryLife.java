@@ -39,9 +39,9 @@ public class OrdinaryLife extends Life {
         return cell.state;
     }
 
-    private class Cell {
-        private int state;
-        private Cell[] neighbors;
+    private static class Cell {
+        int state;
+        Cell[] neighbors;
 
         public Cell(int i, int s)
         {

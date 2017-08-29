@@ -27,10 +27,10 @@ public class NoSyncLife extends Life {
 
     private final Cell[] cells;
 
-    private class Cell {
-        private int idx;
-        private int[] state;
-        private Cell[] neighbors;
+    private static class Cell {
+        int idx;
+        int[] state;
+        Cell[] neighbors;
 
         public Cell(int i, int s) {
             idx = i;
@@ -58,7 +58,7 @@ public class NoSyncLife extends Life {
 
         int nextInt(int n) {
             if (n <= 1) return 0;
-            val = val * FACTOR1 + FACTOR2;
+            val = Math.abs(val * FACTOR1 + FACTOR2);
             return val % n;
         }
     }
@@ -66,6 +66,7 @@ public class NoSyncLife extends Life {
     private void runUnsync(int id)
     {
         PseudoRandom rnd = new PseudoRandom(id);
+        Cell[] next = new Cell[16];
 
         // Start apart
         Cell cur = cells[cells.length * id / nThreads];
@@ -83,7 +84,6 @@ public class NoSyncLife extends Life {
             int TS2 = S2 >> 1;
 
             if (TS2 < TS1) {
-                Cell next = null;
                 int off = TS1 & 0x1;
                 int cnt = 0;
                 int V = S1;
@@ -92,8 +92,8 @@ public class NoSyncLife extends Life {
                     if ((val >> 1) == TS1) {
                         V ^= val;
                     }
-                    else if (rnd.nextInt(++cnt) == 0) {
-                        next = neighbor;
+                    else {
+                        next[cnt++] = neighbor;
                     }
                 }
                 if (cnt == 0) {
@@ -110,8 +110,8 @@ public class NoSyncLife extends Life {
                         if ((val >> 1) == TS0) {
                             V ^= val;
                         }
-                        else if (rnd.nextInt(++cnt) == 0) {
-                            next = neighbor;
+                        else {
+                            next[cnt++] = neighbor;
                         }
                     }
                     if (cnt == 0) {
@@ -128,18 +128,18 @@ public class NoSyncLife extends Life {
                         if ((val >> 1) == TS0) {
                             V ^= val;
                         }
-                        else if (rnd.nextInt(++cnt) == 0) {
-                            next = neighbor;
+                        else {
+                            next[cnt++] = neighbor;
                         }
                     }
                     if (cnt == 1) {
-                        next.state[off] = V;
+                        next[0].state[off] = V;
                         continue mainLoop;
                     }
                 }
                 else {
-                    next = cur;
-                    cnt = 1;
+                    cnt = 0;
+                    next[cnt++] = cur;
                     off = TS2 & 0x1;
                     V = S2;
                     for (Cell neighbor : cur.neighbors) {
@@ -147,19 +147,18 @@ public class NoSyncLife extends Life {
                         if ((val >> 1) == TS2) {
                             V ^= val;
                         }
-                        else if (rnd.nextInt(++cnt) == 0) {
-                            next = neighbor;
+                        else {
+                            next[cnt++] = neighbor;
                         }
                     }
                     if (cnt == 1) {
-                        next.state[off] = V;
+                        next[0].state[off] = V;
                         continue mainLoop;
                     }
                 }
-                cur = next;
+                cur = next[rnd.nextInt(cnt)];
             }
             else if (TS2 == TS1) {
-                Cell next = null;
                 int off = TS2 & 0x1;
                 int cnt = 0;
                 int sum = 0;
@@ -171,12 +170,12 @@ public class NoSyncLife extends Life {
                         V ^= val;
                         sum += val & 0x1;
                     }
-                    else if (rnd.nextInt(++cnt) == 0) {
-                        next = neighbor;
+                    else {
+                        next[cnt++] = neighbor;
                     }
                 }
                 if (cnt == 1) {
-                    next.state[off] = V;
+                    next[0].state[off] = V;
                     sum += V & 0x1;
                     cnt = 0;
                 }
@@ -187,16 +186,16 @@ public class NoSyncLife extends Life {
                     int val = neighbor.state[2];
                     if ((val >> 1) <= TS2) {
                         if ((val >> 1) < TS2) {
-                            ++cnt;
+                            ++cnt2;
                             rnext = neighbor;
                         }
-                        if (cnt2 > 0 && rnd.nextInt(++cnt2) == 0) {
-                            next = neighbor;
+                        if (cnt > 0) {
+                            next[cnt++] = neighbor;
                         }
                     }
                 }
-                if (cnt > 0) {
-                    cur = rnext != null ? rnext : next;
+                if (cnt2 > 0) {
+                    cur = rnext != null ? rnext : next[rnd.nextInt(cnt)];
                     continue mainLoop;
                 }
 
@@ -224,8 +223,8 @@ public class NoSyncLife extends Life {
             }
             else {
                 int off = TS2 & 0x1;
-                int cnt = 1;
-                Cell next = cur;
+                int cnt = 0;
+                next[cnt++] = cur;
                 int V = S2;
                 for (Cell neighbor : cur.neighbors) {
                     int val = neighbor.state[off];
@@ -233,13 +232,11 @@ public class NoSyncLife extends Life {
                         V ^= val;
                     }
                     else {
-                        if (rnd.nextInt(++cnt) == 0) {
-                            next = neighbor;
-                        }
+                        next[cnt++] = neighbor;
                     }
                 }
                 if (cnt == 1) {
-                    next.state[off] = V;
+                    next[0].state[off] = V;
                 }
 
                 off = TS1 & 0x1;
@@ -251,9 +248,7 @@ public class NoSyncLife extends Life {
                         sum += val & 0x1;
                     }
                     else {
-                        if (rnd.nextInt(++cnt) == 0) {
-                            next = neighbor;
-                        }
+                        next[cnt++] = neighbor;
                     }
                 }
                 if (cnt > 0) {
@@ -263,7 +258,7 @@ public class NoSyncLife extends Life {
                 // Apply the rule of Life
                 int nextState = sum < 2 ? STATE0 : sum == 2 ? (S1 & 0x1) : sum == 3 ? STATE1 : STATE0;
                 cur.state[1 - off] = ((TS1 + 1) << 1) | nextState;
-                cur = next;
+                cur = next[rnd.nextInt(cnt)];
             }
         }
     }
