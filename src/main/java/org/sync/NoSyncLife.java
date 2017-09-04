@@ -217,14 +217,13 @@ public class NoSyncLife extends Life {
                 // Color live cells according to the current thread id
                 setColor(cur.idx, nextState == STATE0 ? 0 : id + 1);
                 // Color all cells according to the current thread id
-                //setColor(cur.idx, id + 1)
+                //setColor(cur.idx, id + 1);
                 // Color all cells according to the current generation
                 //setColor(cur.idx, TS1);
             }
             else {
                 int off = TS2 & 0x1;
                 int cnt = 0;
-                next[cnt++] = cur;
                 int V = S2;
                 for (Cell neighbor : cur.neighbors) {
                     int val = neighbor.state[off];
@@ -232,15 +231,16 @@ public class NoSyncLife extends Life {
                         V ^= val;
                     }
                     else {
-                        next[cnt++] = neighbor;
+                        cnt++;
+                        break;
                     }
                 }
-                if (cnt == 1) {
-                    next[0].state[off] = V;
+                if (cnt == 0) {
+                    cur.state[off] = V;
+                    continue mainLoop;
                 }
 
                 off = TS1 & 0x1;
-                cnt = 0;
                 int sum = 0;
                 for (Cell neighbor : cur.neighbors) {
                     int val = neighbor.state[off];
@@ -248,17 +248,13 @@ public class NoSyncLife extends Life {
                         sum += val & 0x1;
                     }
                     else {
-                        next[cnt++] = neighbor;
+                        continue mainLoop;
                     }
-                }
-                if (cnt > 0) {
-                    continue mainLoop;
                 }
 
                 // Apply the rule of Life
                 int nextState = sum < 2 ? STATE0 : sum == 2 ? (S1 & 0x1) : sum == 3 ? STATE1 : STATE0;
                 cur.state[1 - off] = ((TS1 + 1) << 1) | nextState;
-                cur = next[rnd.nextInt(cnt)];
             }
         }
     }
