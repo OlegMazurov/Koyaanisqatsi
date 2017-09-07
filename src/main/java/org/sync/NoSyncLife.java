@@ -98,6 +98,7 @@ public class NoSyncLife extends Life {
                 }
                 if (cnt == 0) {
                     cur.state[2] = V;
+                    cur = cells[cur.idx + 1 == cells.length ? 0 : cur.idx + 1];
                     continue mainLoop;
                 }
 
@@ -220,6 +221,7 @@ public class NoSyncLife extends Life {
                 //setColor(cur.idx, id + 1);
                 // Color all cells according to the current generation
                 //setColor(cur.idx, TS1);
+                cur = cells[cur.idx + 1 == cells.length ? 0 : cur.idx + 1];
             }
             else {
                 int off = TS2 & 0x1;
