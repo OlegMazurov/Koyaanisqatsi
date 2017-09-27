@@ -38,6 +38,8 @@ Can we eliminate synchronization, so that we wouldn't compromise correctness for
 
 So, here it is, an "asynchronous parallel wait-free unsynchronized" implementation of Life (see [NoSyncLife.java](src/main/java/org/sync/NoSyncLife.java)). Of course, this is just a proof of concept. How reliable is it? It's probably too soon to try to answer this question. The presented implementation does not achieve the full potential of the code but, I believe, is good enough to start a conversation.
 
+![Scalability chart](docs/ScalabilityChart.png?raw=true)
+
 ## How to build, test, and run
 
 The project uses Java 8 and Maven (3.3.9), though it doesn't really have any dependencies.
